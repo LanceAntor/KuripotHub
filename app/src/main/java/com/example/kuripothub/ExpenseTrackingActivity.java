@@ -3,16 +3,18 @@ package com.example.kuripothub;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Toast;
+import android.view.WindowManager;
+import android.graphics.Color;
+import android.view.Window;
 
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import androidx.cardview.widget.CardView;
 
 public class ExpenseTrackingActivity extends AppCompatActivity {
 
-    private BottomSheetDialog categoryBottomSheet;
-
-    @Override
+    private BottomSheetDialog categoryBottomSheet;    @Override
     public void onCreate(Bundle saveInstanceState) {
         super.onCreate(saveInstanceState);
         setContentView(R.layout.expense_tracking_activity);
@@ -29,12 +31,15 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             }
         });
     }
-    
-    private void setupCategoryBottomSheet() {
-        // Initialize the bottom sheet dialog
-        categoryBottomSheet = new BottomSheetDialog(this);
+      private void setupCategoryBottomSheet() {
+        // Initialize the bottom sheet dialog with transparent background (no dimming)
+        categoryBottomSheet = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
         View bottomSheetView = getLayoutInflater().inflate(R.layout.category_bottom_sheet, null);
         categoryBottomSheet.setContentView(bottomSheetView);
+        // Remove the dim effect
+        if (categoryBottomSheet.getWindow() != null) {
+            categoryBottomSheet.getWindow().setDimAmount(0f);
+        }
 
         // Set up click listeners for each category
         View breakfastOption = bottomSheetView.findViewById(R.id.breakfastOption);
@@ -47,10 +52,10 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         lunchOption.setOnClickListener(v -> handleCategorySelection("Lunch"));
         dinnerOption.setOnClickListener(v -> handleCategorySelection("Dinner"));
         othersOption.setOnClickListener(v -> handleCategorySelection("Others"));
-    }
-
-    private void showCategoryOptions() {
+    }    private void showCategoryOptions() {
         if (categoryBottomSheet != null) {
+            // Set behavior to eliminate background dimming effect
+            categoryBottomSheet.getBehavior().setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
             categoryBottomSheet.show();
         }
     }

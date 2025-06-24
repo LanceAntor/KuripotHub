@@ -9,22 +9,23 @@
 
     <!-- Welcome Text -->
 
+    <!-- Guest Text -->
+
     <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/profileIcon"
         android:layout_width="40dp"
         android:layout_height="40dp"
-        android:layout_marginStart="32dp"
-        android:layout_marginTop="32dp"
+        android:layout_marginStart="36dp"
+        android:layout_marginTop="52dp"
         android:background="@color/yellow"
+        android:clickable="true"
         android:padding="4dp"
         android:scaleType="centerInside"
-        android:clickable="true"
         android:src="@drawable/ic_profile"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:shapeAppearanceOverlay="@style/CircleImageView" />
 
-    <!-- Guest Text -->
     <TextView
         android:id="@+id/textView2"
         android:layout_width="wrap_content"
@@ -54,7 +55,7 @@
         android:id="@+id/settingsIcon"
         android:layout_width="31dp"
         android:layout_height="34dp"
-        android:layout_marginTop="32dp"
+        android:layout_marginTop="48dp"
         android:layout_marginEnd="36dp"
         android:clickable="true"
         android:src="@drawable/ic_settings"
@@ -65,7 +66,7 @@
         android:id="@+id/budgetCard"
         android:layout_width="340dp"
         android:layout_height="80dp"
-        android:layout_marginTop="50dp"
+        android:layout_marginTop="30dp"
         app:cardCornerRadius="40dp"
         app:cardElevation="4dp"
         app:layout_constraintEnd_toEndOf="parent"
@@ -83,11 +84,11 @@
                 android:id="@+id/budgetText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:fontFamily="@font/russo_one"
                 android:text="BUDGET"
                 android:textColor="#000000"
                 android:textSize="14sp"
                 android:textStyle="bold"
-                android:fontFamily="@font/russo_one"
                 app:layout_constraintBottom_toTopOf="@id/budgetAmount"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -134,8 +135,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="4dp"
-                    android:text="Edit"
                     android:fontFamily="@font/russo_one"
+                    android:text="Edit"
                     android:textColor="#000000"
                     android:textSize="12sp"
                     android:textStyle="bold" />

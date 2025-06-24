@@ -4,14 +4,14 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/rounded_top_corners"
-    android:padding="16dp">
+    android:paddingBottom="8dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
         android:orientation="horizontal"
-        android:paddingVertical="24dp"
+        android:paddingVertical="12dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -29,26 +29,27 @@
             android:orientation="vertical">
 
             <androidx.cardview.widget.CardView
-                android:layout_width="70dp"
-                android:layout_height="70dp"
-                app:cardCornerRadius="35dp"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                app:cardCornerRadius="30dp"
                 app:cardElevation="2dp"
-                app:cardBackgroundColor="@android:color/white">                <ImageView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                app:cardBackgroundColor="@android:color/white">
+                <ImageView
+                    android:layout_width="35dp"
+                    android:layout_height="35dp"
                     android:layout_gravity="center"
-                    android:src="@drawable/ic_breakfast"
+                    android:src="@drawable/coffee"
                     android:contentDescription="Breakfast icon" />
             </androidx.cardview.widget.CardView>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:text="BREAKFAST"
                 android:fontFamily="@font/russo_one"
                 android:textColor="@android:color/black"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
         <!-- Lunch -->
@@ -63,26 +64,27 @@
             android:orientation="vertical">
 
             <androidx.cardview.widget.CardView
-                android:layout_width="70dp"
-                android:layout_height="70dp"
-                app:cardCornerRadius="35dp"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                app:cardCornerRadius="30dp"
                 app:cardElevation="2dp"
-                app:cardBackgroundColor="@android:color/white">                <ImageView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                app:cardBackgroundColor="@android:color/white">
+                <ImageView
+                    android:layout_width="35dp"
+                    android:layout_height="35dp"
                     android:layout_gravity="center"
-                    android:src="@drawable/ic_lunch"
+                    android:src="@drawable/lunch"
                     android:contentDescription="Lunch icon" />
             </androidx.cardview.widget.CardView>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:text="LUNCH"
                 android:fontFamily="@font/russo_one"
                 android:textColor="@android:color/black"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
         <!-- Dinner -->
@@ -97,26 +99,27 @@
             android:orientation="vertical">
 
             <androidx.cardview.widget.CardView
-                android:layout_width="70dp"
-                android:layout_height="70dp"
-                app:cardCornerRadius="35dp"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                app:cardCornerRadius="30dp"
                 app:cardElevation="2dp"
-                app:cardBackgroundColor="@android:color/white">                <ImageView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                app:cardBackgroundColor="@android:color/white">
+                <ImageView
+                    android:layout_width="35dp"
+                    android:layout_height="35dp"
                     android:layout_gravity="center"
-                    android:src="@drawable/ic_dinner"
+                    android:src="@drawable/wine_bottle"
                     android:contentDescription="Dinner icon" />
             </androidx.cardview.widget.CardView>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:text="DINNER"
                 android:fontFamily="@font/russo_one"
                 android:textColor="@android:color/black"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
         <!-- Others -->
@@ -131,26 +134,27 @@
             android:orientation="vertical">
 
             <androidx.cardview.widget.CardView
-                android:layout_width="70dp"
-                android:layout_height="70dp"
-                app:cardCornerRadius="35dp"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                app:cardCornerRadius="30dp"
                 app:cardElevation="2dp"
-                app:cardBackgroundColor="@android:color/white">                <ImageView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                app:cardBackgroundColor="@android:color/white">
+                <ImageView
+                    android:layout_width="35dp"
+                    android:layout_height="35dp"
                     android:layout_gravity="center"
-                    android:src="@drawable/ic_others"
+                    android:src="@drawable/other"
                     android:contentDescription="Others icon" />
             </androidx.cardview.widget.CardView>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:text="OTHERS"
                 android:fontFamily="@font/russo_one"
                 android:textColor="@android:color/black"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
     </LinearLayout>
