@@ -1,16 +1,19 @@
 package com.example.kuripothub;
 
+import android.app.Dialog;
 import android.os.Bundle;
 import android.view.View;
+import android.view.Window;
+import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.view.WindowManager;
 import android.graphics.Color;
-import android.view.Window;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
-import androidx.cardview.widget.CardView;
 
 public class ExpenseTrackingActivity extends AppCompatActivity {
 
@@ -58,17 +61,66 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             categoryBottomSheet.getBehavior().setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
             categoryBottomSheet.show();
         }
-    }
-
-    private void handleCategorySelection(String category) {
-        // Display a message showing which category was selected
-        Toast.makeText(this, "Selected category: " + category, Toast.LENGTH_SHORT).show();
-        
+    }    private void handleCategorySelection(String category) {
         // Close the bottom sheet
         if (categoryBottomSheet != null && categoryBottomSheet.isShowing()) {
             categoryBottomSheet.dismiss();
         }
         
-        // TODO: Navigate to add expense form with the selected category
+        if (category.equals("Others")) {
+            // Handle "Others" option differently as per requirement
+            Toast.makeText(this, "Selected category: " + category, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        // Show amount entry modal for breakfast, lunch, and dinner
+        showAmountEntryModal(category);
+    }
+    
+    private void showAmountEntryModal(String category) {        final Dialog amountDialog = new Dialog(this);
+        amountDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        amountDialog.setContentView(R.layout.amount_entry_modal);
+        
+        // Make dialog background transparent and apply animations
+        if (amountDialog.getWindow() != null) {
+            amountDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            amountDialog.getWindow().getAttributes().windowAnimations = R.style.DialogAnimation;
+            
+            // Set the dialog width to match parent with margins
+            WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
+            layoutParams.copyFrom(amountDialog.getWindow().getAttributes());
+            layoutParams.width = WindowManager.LayoutParams.MATCH_PARENT;
+            amountDialog.getWindow().setAttributes(layoutParams);
+        }
+
+        // Set up UI elements
+        TextView categoryTitle = amountDialog.findViewById(R.id.categoryTitle);
+        EditText amountInput = amountDialog.findViewById(R.id.amountInput);
+        CardView cancelButton = amountDialog.findViewById(R.id.cancelButton);
+        CardView confirmButton = amountDialog.findViewById(R.id.confirmButton);
+
+        // Set category title
+        categoryTitle.setText(category.toUpperCase());
+
+        // Set up button listeners
+        cancelButton.setOnClickListener(v -> amountDialog.dismiss());
+        
+        confirmButton.setOnClickListener(v -> {
+            String amountText = amountInput.getText().toString().trim();
+            if (!amountText.isEmpty()) {
+                // Process the amount entered
+                processExpense(category, amountText);
+                amountDialog.dismiss();
+            } else {
+                Toast.makeText(this, "Please enter an amount", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        amountDialog.show();
+    }
+    
+    private void processExpense(String category, String amount) {
+        // TODO: Save the expense data to database or perform other actions
+        Toast.makeText(this, category + " expense added: " + amount, Toast.LENGTH_SHORT).show();
     }
 }
