@@ -98,10 +98,9 @@
             <TextView
                 android:id="@+id/budgetAmount"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/russo_one"
+                android:layout_height="wrap_content"                android:fontFamily="@font/russo_one"
                 android:letterSpacing="0.05"
-                android:text="P0.00"
+                android:text="P2000.00"
                 android:textColor="#000000"
                 android:textSize="30sp"
                 android:textStyle="bold"
@@ -174,24 +173,28 @@
         android:fontFamily="@font/russo_one"
         android:textSize="12sp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/budgetCard" />
-
-    <ScrollView
+        app:layout_constraintTop_toBottomOf="@id/budgetCard" />    <ScrollView
         android:id="@+id/scrollView2"
         android:layout_width="335dp"
         android:layout_height="0dp"
         android:layout_marginStart="50dp"
-        android:layout_marginTop="13dp"
+        android:layout_marginTop="10dp"
         android:layout_marginEnd="50dp"
         android:layout_marginBottom="90dp"
+        android:clipToPadding="false"
+        android:overScrollMode="never"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/transactionsText">
-
-        <LinearLayout
-            android:layout_width="match_parent"            android:layout_height="wrap_content"
-            android:orientation="vertical" />
+        app:layout_constraintTop_toBottomOf="@+id/transactionsText">        <LinearLayout
+            android:id="@+id/transactionsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:clipToPadding="false"
+            android:paddingTop="5dp" 
+            android:paddingBottom="10dp"
+            android:dividerPadding="20dp" />
     </ScrollView>
 
     <!-- Bottom Navigation Bar -->
