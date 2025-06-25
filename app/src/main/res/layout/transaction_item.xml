@@ -4,13 +4,73 @@
     app:cardCornerRadius="20dp"
     app:cardElevation="2dp">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#FFE4B5"
-        android:paddingVertical="18dp"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp">
+        android:layout_height="wrap_content">
+
+        <!-- Edit Background (Left Swipe) -->
+        <LinearLayout
+            android:id="@+id/editBackground"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#E8E8E8"
+            android:gravity="start|center_vertical"
+            android:paddingStart="30dp"
+            android:visibility="gone"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_edit"
+                android:tint="@android:color/black" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Edit"
+                android:textColor="@android:color/black"
+                android:textSize="16sp"
+                android:fontFamily="@font/russo_one" />
+        </LinearLayout>
+
+        <!-- Delete Background (Right Swipe) -->
+        <LinearLayout
+            android:id="@+id/deleteBackground"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#FF4444"
+            android:gravity="end|center_vertical"
+            android:paddingEnd="30dp"
+            android:visibility="gone"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:text="Delete"
+                android:textColor="@android:color/white"
+                android:textSize="16sp"
+                android:fontFamily="@font/russo_one" />
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_delete"
+                android:tint="@android:color/white" />
+        </LinearLayout>
+
+        <!-- Main Transaction Content -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/foregroundView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#FFE4B5"
+            android:paddingVertical="18dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
 
         <!-- Category Icon Container -->
         <androidx.cardview.widget.CardView
@@ -59,5 +119,6 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
-    </androidx.constraintlayout.widget.ConstraintLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </FrameLayout>
 </androidx.cardview.widget.CardView>
