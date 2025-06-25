@@ -33,5 +33,10 @@
             android:name=".ExpenseTrackingActivity"
             android:exported="false">
         </activity>
+        
+        <activity
+            android:name=".TransactionHistoryActivity"
+            android:exported="false">
+        </activity>
     </application>
 </manifest>

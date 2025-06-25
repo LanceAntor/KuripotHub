@@ -15,6 +15,7 @@ import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.animation.ObjectAnimator;
 import android.widget.FrameLayout;
+import android.content.Intent;
 import androidx.appcompat.app.AlertDialog;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -48,6 +49,16 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 showCategoryOptions();
+            }
+        });
+        
+        // Set click listener for View All button
+        TextView viewAllText = findViewById(R.id.viewAllText);
+        viewAllText.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(ExpenseTrackingActivity.this, TransactionHistoryActivity.class);
+                startActivity(intent);
             }
         });
     }
