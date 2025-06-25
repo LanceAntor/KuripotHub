@@ -1,4 +1,4 @@
-<androidx.constraintlayout.widget.ConstraintLayout
+   <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -13,83 +13,84 @@
 
     <!-- Illustration (Person w/ tablet) -->
 
-    <TextView
-        android:id="@+id/title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="96dp"
-        android:text="KuripotHub"
-        android:fontFamily="@font/russo_one"
-        android:textColor="@color/black"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
-        app:layout_constraintStart_toStartOf="parent"
 
-        app:layout_constraintTop_toTopOf="parent" />
+       <!-- Welcome Message -->
 
-    <TextView
-        android:id="@+id/tagline"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="@string/tagline"
-        android:textColor="@color/gray"
-        android:fontFamily="@font/russo_one"
-        android:textSize="16sp"
-        android:textStyle="italic"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/title" />
+       <ImageView
+           android:id="@+id/illustration"
+           android:layout_width="250dp"
+           android:layout_height="250dp"
+           android:layout_marginTop="8dp"
+           android:src="@drawable/businessman"
+           app:layout_constraintEnd_toEndOf="parent"
+           app:layout_constraintHorizontal_bias="0.494"
+           app:layout_constraintStart_toStartOf="parent"
+           app:layout_constraintTop_toBottomOf="@id/tagline" />
+
+       <TextView
+           android:id="@+id/description"
+           android:layout_width="0dp"
+           android:layout_height="wrap_content"
+           android:layout_marginTop="64dp"
+           android:fontFamily="@font/russo_one"
+           android:lineSpacingExtra="4dp"
+           android:text="Welcome to KuripotHub!"
+           android:textColor="@color/black"
+           android:textSize="16sp"
+           android:textStyle="bold"
+           app:layout_constraintEnd_toEndOf="parent"
+           app:layout_constraintHorizontal_bias="0.0"
+           app:layout_constraintStart_toStartOf="parent"
+           app:layout_constraintTop_toBottomOf="@id/illustration" />
+
+       <TextView
+           android:id="@+id/tagline"
+           android:layout_width="wrap_content"
+           android:layout_height="wrap_content"
+           android:layout_marginTop="4dp"
+           android:fontFamily="@font/russo_one"
+           android:text="@string/tagline"
+           android:textColor="@color/gray"
+           android:textSize="16sp"
+           android:textStyle="italic"
+           app:layout_constraintEnd_toEndOf="parent"
+           app:layout_constraintHorizontal_bias="0.497"
+           app:layout_constraintStart_toStartOf="parent"
+           app:layout_constraintTop_toBottomOf="@id/title" />
+
+       <TextView
+           android:id="@+id/textView"
+           android:layout_width="0dp"
+           android:layout_height="170dp"
+           android:layout_marginTop="20dp"
+           android:fontFamily="@font/russo_one"
+           android:text="\t\t\tYour smart, no-no nsense companion for managing money the kuripot way—practical, mindful, and proudly tipid. Whether you're budgeting for the week, tracking your daily gastos, or setting goals for your savings, KuripotHub keeps it all organized in one place.\n\n\t\t\tWe’re not just about cutting costs—we’re about making every piso count. With intuitive tools, real-time insights, and a sprinkle of witty charm, KuripotHub helps you take control of your finances with confidence and clarity.\n\nLet’s make tipid a lifestyle."
+           android:textSize="12sp"
+           app:layout_constraintEnd_toEndOf="parent"
+           app:layout_constraintHorizontal_bias="0.0"
+           app:layout_constraintStart_toStartOf="parent"
+           app:layout_constraintTop_toBottomOf="@+id/description" />
+
+       <TextView
+           android:id="@+id/title"
+           android:layout_width="wrap_content"
+           android:layout_height="wrap_content"
+           android:layout_marginTop="16dp"
+           android:fontFamily="@font/russo_one"
+           android:text="KuripotHub"
+           android:textColor="@color/black"
+           android:textSize="32sp"
+           android:textStyle="bold"
+           app:layout_constraintEnd_toEndOf="parent"
+           app:layout_constraintHorizontal_bias="0.496"
+           app:layout_constraintStart_toStartOf="parent"
+
+           app:layout_constraintTop_toTopOf="parent" />
 
 
-    <!-- Welcome Message -->
+       <!-- Welcome Message -->
 
-    <ImageView
-        android:id="@+id/illustration"
-        android:layout_width="250dp"
-        android:layout_height="250dp"
-        android:layout_marginTop="24dp"
-        android:src="@drawable/businessman"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.495"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tagline" />
-
-    <TextView
-        android:id="@+id/description"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="48dp"
-        android:lineSpacingExtra="4dp"
-        android:text="Welcome to KuripotHub!"
-        android:fontFamily="@font/russo_one"
-        android:textColor="@color/black"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/illustration" />
-
-
-    <!-- Welcome Message -->
-    <TextView
-        android:id="@+id/textView"
-        android:layout_width="0dp"
-        android:layout_height="170dp"
-        android:layout_marginTop="10dp"
-        android:text="\t\t\tYour smart, no-no nsense companion for managing money the kuripot way—practical, mindful, and proudly tipid. Whether you're budgeting for the week, tracking your daily gastos, or setting goals for your savings, KuripotHub keeps it all organized in one place.\n\n\t\t\tWe’re not just about cutting costs—we’re about making every piso count. With intuitive tools, real-time insights, and a sprinkle of witty charm, KuripotHub helps you take control of your finances with confidence and clarity.\n\nLet’s make tipid a lifestyle."
-        android:textSize="12sp"
-        android:fontFamily="@font/russo_one"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/description" />
-
-    <Button
+       <Button
         android:id="@+id/finishButton"
         android:layout_width="110dp"
         android:layout_height="40dp"

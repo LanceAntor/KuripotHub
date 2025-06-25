@@ -105,13 +105,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             categoryBottomSheet.dismiss();
         }
         
-        if (category.equals("Others")) {
-            // Handle "Others" option differently as per requirement
-            Toast.makeText(this, "Selected category: " + category, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        
-        // Show amount entry modal for breakfast, lunch, and dinner
+        // Show amount entry modal for all categories including Others
         showAmountEntryModal(category);
     }
     
@@ -215,6 +209,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 break;
             case "dinner":
                 categoryIcon.setImageResource(R.drawable.wine_bottle);
+                break;
+            case "others":
+                categoryIcon.setImageResource(R.drawable.other); // You can change this to a different icon for Others
                 break;
             default:
                 categoryIcon.setImageResource(R.drawable.coffee); // Default icon

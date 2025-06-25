@@ -3,7 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#FFFFFF" >
+
 
     <!-- Profile Icon -->
 
@@ -15,8 +17,8 @@
         android:id="@+id/profileIcon"
         android:layout_width="40dp"
         android:layout_height="40dp"
-        android:layout_marginStart="36dp"
-        android:layout_marginTop="52dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="24dp"
         android:background="@color/yellow"
         android:clickable="true"
         android:padding="4dp"
@@ -30,8 +32,8 @@
         android:id="@+id/textView2"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:text="Welcome"
+        android:layout_marginStart="6dp"
+        android:text="Welcome!"
         android:textColor="@color/gray"
         android:fontFamily="@font/russo_one"
         android:textSize="10sp"
@@ -45,7 +47,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="11dp"
         android:text="Guest"
-        android:textSize="16sp"
+        android:textSize="18sp"
         android:textColor="@color/black"
         android:fontFamily="@font/russo_one"
         app:layout_constraintStart_toEndOf="@id/profileIcon"
@@ -55,7 +57,7 @@
         android:id="@+id/settingsIcon"
         android:layout_width="31dp"
         android:layout_height="34dp"
-        android:layout_marginTop="48dp"
+        android:layout_marginTop="24dp"
         android:layout_marginEnd="36dp"
         android:clickable="true"
         android:src="@drawable/ic_settings"
@@ -192,7 +194,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:clipToPadding="false"
-            android:paddingTop="5dp" 
+            android:paddingTop="5dp"
             android:paddingBottom="10dp"
             android:dividerPadding="20dp" />
     </ScrollView>
