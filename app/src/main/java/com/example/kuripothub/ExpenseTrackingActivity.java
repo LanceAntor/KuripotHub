@@ -61,6 +61,15 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
+        
+        // Set click listener for Budget Edit button
+        View editContainer = findViewById(R.id.editContainer);
+        editContainer.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showBudgetEditDialog();
+            }
+        });
     }
 
     private void setupCategoryBottomSheet() {
@@ -534,5 +543,61 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         } catch (NumberFormatException e) {
             Toast.makeText(this, "Invalid amount format", Toast.LENGTH_SHORT).show();
         }
+    }
+    
+    private void showBudgetEditDialog() {
+        final Dialog budgetDialog = new Dialog(this);
+        budgetDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        budgetDialog.setContentView(R.layout.amount_entry_modal);
+        
+        // Make dialog background transparent and apply animations
+        if (budgetDialog.getWindow() != null) {
+            budgetDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            budgetDialog.getWindow().getAttributes().windowAnimations = R.style.DialogAnimation;
+            
+            // Set the dialog width to match parent with margins
+            WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
+            layoutParams.copyFrom(budgetDialog.getWindow().getAttributes());
+            layoutParams.width = WindowManager.LayoutParams.MATCH_PARENT;
+            budgetDialog.getWindow().setAttributes(layoutParams);
+        }
+
+        // Set up UI elements
+        TextView categoryTitle = budgetDialog.findViewById(R.id.categoryTitle);
+        EditText amountInput = budgetDialog.findViewById(R.id.amountInput);
+        CardView cancelButton = budgetDialog.findViewById(R.id.cancelButton);
+        CardView confirmButton = budgetDialog.findViewById(R.id.confirmButton);
+
+        // Set dialog title and pre-fill with current budget
+        categoryTitle.setText("BUDGET");
+        amountInput.setText(String.format("%.2f", currentBudget));
+        amountInput.setHint("Enter new budget amount");
+
+        // Set up button listeners
+        cancelButton.setOnClickListener(v -> budgetDialog.dismiss());
+        
+        confirmButton.setOnClickListener(v -> {
+            String newBudgetText = amountInput.getText().toString().trim();
+            if (!newBudgetText.isEmpty()) {
+                try {
+                    double newBudget = Double.parseDouble(newBudgetText.replaceAll("[^\\d.]", ""));
+                    if (newBudget >= 0) {
+                        // Update the budget
+                        currentBudget = newBudget;
+                        budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                        Toast.makeText(this, "Budget updated successfully", Toast.LENGTH_SHORT).show();
+                        budgetDialog.dismiss();
+                    } else {
+                        Toast.makeText(this, "Budget cannot be negative", Toast.LENGTH_SHORT).show();
+                    }
+                } catch (NumberFormatException e) {
+                    Toast.makeText(this, "Please enter a valid amount", Toast.LENGTH_SHORT).show();
+                }
+            } else {
+                Toast.makeText(this, "Please enter a budget amount", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        budgetDialog.show();
     }
 }
