@@ -7,10 +7,12 @@ import android.os.Looper;
 import android.widget.ImageView;
 import androidx.appcompat.app.AppCompatActivity;
 import com.bumptech.glide.Glide;
+import com.example.kuripothub.utils.FirebaseManager;
 
 public class LoadingActivity extends AppCompatActivity {
 
-    private static final int LOADING_DURATION = 5000; // 3 seconds
+    private static final int LOADING_DURATION = 3000; // 3 seconds
+    private FirebaseManager firebaseManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -21,6 +23,8 @@ public class LoadingActivity extends AppCompatActivity {
         if (getSupportActionBar() != null) {
             getSupportActionBar().hide();
         }
+
+        firebaseManager = FirebaseManager.getInstance();
 
         // Load the animated GIF using Glide
         ImageView loadingGif = findViewById(R.id.loadingGif);
@@ -34,13 +38,20 @@ public class LoadingActivity extends AppCompatActivity {
     }
 
     private void startLoadingTimer() {
-        // Use Handler to delay the transition to PrefaceActivity
+        // Use Handler to delay the transition
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
-                // Navigate to PrefaceActivity after 3 seconds
-                Intent intent = new Intent(LoadingActivity.this, PrefaceActivity.class);
-                startActivity(intent);
+                // Check if user is already logged in
+                if (firebaseManager.isUserLoggedIn()) {
+                    // Navigate directly to main expense tracking
+                    Intent intent = new Intent(LoadingActivity.this, ExpenseTrackingActivity.class);
+                    startActivity(intent);
+                } else {
+                    // Navigate to login screen
+                    Intent intent = new Intent(LoadingActivity.this, LoginActivity.class);
+                    startActivity(intent);
+                }
                 // Finish this activity so user can't go back to loading screen
                 finish();
             }
