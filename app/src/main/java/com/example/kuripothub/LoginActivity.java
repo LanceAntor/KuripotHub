@@ -6,7 +6,6 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
@@ -23,7 +22,6 @@ public class LoginActivity extends AppCompatActivity {
     private EditText passwordInput;
     private CardView submitButton;
     private TextView signUpLink;
-    private ProgressBar progressBar;
     
     private FirebaseManager firebaseManager;
 
@@ -50,12 +48,6 @@ public class LoginActivity extends AppCompatActivity {
         passwordInput = findViewById(R.id.passwordInput);
         submitButton = findViewById(R.id.submitButton);
         signUpLink = findViewById(R.id.signUpLink);
-        
-        // Try to find progress bar, create programmatically if not found
-        progressBar = findViewById(R.id.progressBar);
-        if (progressBar == null) {
-            // Progress bar not in layout, we'll show toast messages instead
-        }
     }
 
     private void setupClickListeners() {
@@ -97,11 +89,13 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        showProgress(true);
+        // Disable submit button during login
+        submitButton.setEnabled(false);
         
         firebaseManager.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
-                    showProgress(false);
+                    // Re-enable submit button
+                    submitButton.setEnabled(true);
                     
                     if (task.isSuccessful()) {
                         Log.d(TAG, "signInWithEmail:success");
@@ -135,14 +129,5 @@ public class LoginActivity extends AppCompatActivity {
 
     private boolean isValidEmail(String email) {
         return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches();
-    }
-    
-    private void showProgress(boolean show) {
-        if (progressBar != null) {
-            progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
-        }
-        submitButton.setEnabled(!show);
-        emailInput.setEnabled(!show);
-        passwordInput.setEnabled(!show);
     }
 }
