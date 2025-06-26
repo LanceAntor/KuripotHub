@@ -91,8 +91,7 @@
                 android:textSize="14sp"
                 android:textColor="@android:color/black"
                 android:fontFamily="@font/russo_one"
-                android:layout_marginBottom="2dp"
-                android:layout_marginEnd="8dp" />
+                android:layout_marginBottom="8dp" />
 
             <EditText
                 android:id="@+id/emailInput"
@@ -102,9 +101,7 @@
                 android:textSize="18sp"
                 android:textColor="@android:color/black"
                 android:fontFamily="@font/russo_one"
-                android:paddingVertical="12dp"
-                android:paddingStart="4dp"
-                android:paddingEnd="0dp" />
+                android:paddingVertical="12dp" />
 
             <!-- Email Underline -->
             <View
@@ -123,8 +120,7 @@
                 android:textSize="14sp"
                 android:textColor="@android:color/black"
                 android:fontFamily="@font/russo_one"
-                android:layout_marginBottom="2dp"
-                android:layout_marginEnd="8dp" />
+                android:layout_marginBottom="8dp" />
 
             <EditText
                 android:id="@+id/passwordInput"
@@ -135,9 +131,7 @@
                 android:textColor="@android:color/black"
                 android:fontFamily="@font/russo_one"
                 android:inputType="textPassword"
-                android:paddingVertical="12dp"
-                android:paddingStart="4dp"
-                android:paddingEnd="0dp" />
+                android:paddingVertical="12dp" />
 
             <!-- Password Underline -->
             <View
@@ -156,8 +150,7 @@
                 android:textSize="14sp"
                 android:textColor="@android:color/black"
                 android:fontFamily="@font/russo_one"
-                android:layout_marginBottom="2dp"
-                android:layout_marginEnd="8dp" />
+                android:layout_marginBottom="8dp" />
 
             <EditText
                 android:id="@+id/confirmPasswordInput"
@@ -168,9 +161,7 @@
                 android:textColor="@android:color/black"
                 android:fontFamily="@font/russo_one"
                 android:inputType="textPassword"
-                android:paddingVertical="12dp"
-                android:paddingStart="4dp"
-                android:paddingEnd="0dp" />
+                android:paddingVertical="12dp" />
 
             <!-- Confirm Password Underline -->
             <View
@@ -231,6 +222,16 @@
                     android:fontFamily="@font/russo_one" />
 
             </androidx.cardview.widget.CardView>
+
+            <!-- Progress Bar -->
+            <ProgressBar
+                android:id="@+id/progressBar"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center"
+                android:layout_marginTop="20dp"
+                android:visibility="gone"
+                android:indeterminateTint="#FFDD00" />
 
     </LinearLayout>
 

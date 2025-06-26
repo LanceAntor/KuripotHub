@@ -18,7 +18,7 @@
         android:id="@+id/thriftyImage"
         android:layout_width="400dp"
         android:layout_height="400dp"
-        android:layout_marginTop="184dp"
+        android:layout_marginTop="140dp"
         android:scaleType="centerInside"
         android:src="@drawable/kuripot_hub"
         app:layout_constraintEnd_toEndOf="parent"

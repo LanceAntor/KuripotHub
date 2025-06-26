@@ -1,7 +1,9 @@
 package com.example.kuripothub;
 
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.widget.EditText;
@@ -16,26 +18,56 @@ import android.view.MotionEvent;
 import android.animation.ObjectAnimator;
 import android.widget.FrameLayout;
 import android.content.Intent;
-import androidx.appcompat.app.AlertDialog;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 
+import com.example.kuripothub.models.Expense;
+import com.example.kuripothub.models.User;
+import com.example.kuripothub.utils.FirebaseManager;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 public class ExpenseTrackingActivity extends AppCompatActivity {
 
+    private static final String TAG = "ExpenseTrackingActivity";
+    
     private BottomSheetDialog categoryBottomSheet;
-    private double currentBudget = 2000.00; // Initialize budget to 2000
+    private double currentBudget = 2000.00; // Default budget
     private TextView budgetAmountText;
+    private FirebaseManager firebaseManager;
+    private String currentUserId;
 
     @Override
     public void onCreate(Bundle saveInstanceState) {
         super.onCreate(saveInstanceState);
         setContentView(R.layout.expense_tracking_activity);
-          // Initialize budget amount text view
+        
+        firebaseManager = FirebaseManager.getInstance();
+        
+        // Check if user is logged in
+        FirebaseUser currentUser = firebaseManager.getCurrentUser();
+        if (currentUser == null) {
+            // Redirect to login if not authenticated
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+            return;
+        }
+        
+        currentUserId = currentUser.getUid();
+        
+        // Initialize budget amount text view
         budgetAmountText = findViewById(R.id.budgetAmount);
-        budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+        
+        // Load user data from Firebase
+        loadUserData();
         
         // Initialize the bottom sheet
         setupCategoryBottomSheet();
@@ -68,6 +100,15 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 showBudgetEditDialog();
+            }
+        });
+        
+        // Set click listener for Settings icon
+        ImageView settingsIcon = findViewById(R.id.settingsIcon);
+        settingsIcon.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showLogoutDialog();
             }
         });
     }
@@ -154,14 +195,16 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             // Parse the amount and update the budget
             double expenseAmount = Double.parseDouble(amount.replaceAll("[^\\d.]", ""));
             
+            // Save expense to Firebase
+            saveExpenseToFirebase(category, expenseAmount);
+            
             // Decrease the budget
             updateBudget(expenseAmount);
             
             // Add the transaction to the transactions container
             addTransactionToView(category, amount);
             
-            // You can also save the expense data to database or perform other actions here
-            Toast.makeText(this, category + " expense added: " + amount, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, category + " expense added: P" + String.format("%.2f", expenseAmount), Toast.LENGTH_SHORT).show();
         } catch (NumberFormatException e) {
             Toast.makeText(this, "Invalid amount format", Toast.LENGTH_SHORT).show();
         }
@@ -178,6 +221,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         
         // Update the budget text view
         budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+        
+        // Update budget in Firebase
+        updateBudgetInFirebase();
     }
     
     private void addTransactionToView(String category, String amountStr) {
@@ -582,6 +628,10 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         // Update the budget
                         currentBudget = newBudget;
                         budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                        
+                        // Update budget in Firebase
+                        updateBudgetInFirebase();
+                        
                         Toast.makeText(this, "Budget updated successfully", Toast.LENGTH_SHORT).show();
                         budgetDialog.dismiss();
                     } else {
@@ -596,5 +646,92 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         });
 
         budgetDialog.show();
+    }
+
+    // Firebase methods
+    private void loadUserData() {
+        firebaseManager.getUserProfile(currentUserId)
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        User user = documentSnapshot.toObject(User.class);
+                        if (user != null) {
+                            currentBudget = user.getBudget();
+                            budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                            Log.d(TAG, "User budget loaded: " + currentBudget);
+                        }
+                    } else {
+                        Log.d(TAG, "No user profile found, using default budget");
+                        budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "Error loading user data", e);
+                    budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                });
+    }
+    
+    private void saveExpenseToFirebase(String category, double amount) {
+        // Create current date string
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        String currentDate = dateFormat.format(new Date());
+        
+        Expense expense = new Expense(
+            currentUserId,
+            category,
+            amount,
+            "", // Description can be empty for now
+            currentDate
+        );
+        
+        firebaseManager.addExpense(expense)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Expense saved successfully");
+                })
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "Error saving expense", e);
+                    Toast.makeText(this, "Failed to save expense", Toast.LENGTH_SHORT).show();
+                });
+    }
+    
+    private void updateBudgetInFirebase() {
+        firebaseManager.updateUserBudget(currentUserId, currentBudget)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Budget updated successfully");
+                })
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "Error updating budget", e);
+                });
+    }
+
+    private void showLogoutDialog() {
+        final Dialog logoutDialog = new Dialog(this);
+        logoutDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        logoutDialog.setContentView(R.layout.logout_dialog);
+        
+        // Make dialog background transparent and add animation
+        if (logoutDialog.getWindow() != null) {
+            logoutDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            logoutDialog.getWindow().getAttributes().windowAnimations = R.style.DialogAnimation;
+        }
+
+        // Set up button listeners
+        CardView notNowButton = logoutDialog.findViewById(R.id.notNowButton);
+        CardView yesButton = logoutDialog.findViewById(R.id.yesButton);
+
+        notNowButton.setOnClickListener(v -> logoutDialog.dismiss());
+        
+        yesButton.setOnClickListener(v -> {
+            logoutDialog.dismiss();
+            performLogout();
+        });
+
+        logoutDialog.show();
+    }
+    
+    private void performLogout() {
+        firebaseManager.signOut();
+        Toast.makeText(this, "Logged out successfully", Toast.LENGTH_SHORT).show();
+        startActivity(new Intent(this, LoginActivity.class));
+        finish();
     }
 }
