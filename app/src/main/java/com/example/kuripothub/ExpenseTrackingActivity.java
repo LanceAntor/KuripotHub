@@ -237,16 +237,27 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         // Subtract the expense from the current budget
         currentBudget -= expenseAmount;
         
-        // Make sure budget doesn't go below zero
-        if (currentBudget < 0) {
-            currentBudget = 0;
-        }
-        
-        // Update the budget text view
-        budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+        // Allow budget to go negative to show overspending
+        // Update the budget text view with color indication
+        updateBudgetDisplay();
         
         // Update budget in Firebase
         updateBudgetInFirebase();
+    }
+    
+    private void updateBudgetDisplay() {
+        // Format the budget text
+        String budgetText = "P" + String.format("%.2f", Math.abs(currentBudget));
+        
+        if (currentBudget < 0) {
+            // Show negative budget in red with minus sign
+            budgetAmountText.setText("-" + budgetText);
+            budgetAmountText.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        } else {
+            // Show positive budget in default color
+            budgetAmountText.setText(budgetText);
+            budgetAmountText.setTextColor(getResources().getColor(android.R.color.black));
+        }
     }
     
     private void addTransactionToView(String category, String amountStr) {
@@ -299,6 +310,11 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         // Add swipe functionality to the transaction item
         setupSwipeGesture(transactionItem, category, amountStr);
         
+        // Ensure the transaction item can receive touch events properly
+        transactionItem.setClickable(true);
+        transactionItem.setFocusable(true);
+        transactionItem.setFocusableInTouchMode(true);
+        
         // Add the transaction item to the container with proper layout parameters
         findViewById(R.id.transactionsContainer).post(new Runnable() {
             @Override
@@ -333,6 +349,10 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         
         // Add some initial padding too
         container.setPadding(0, (int)(10 * scale + 0.5f), 0, 0);
+        
+        // Enable better touch handling for child views
+        container.setMotionEventSplittingEnabled(false);
+        container.setDescendantFocusability(LinearLayout.FOCUS_AFTER_DESCENDANTS);
     }
     
     private void setupSwipeGesture(View transactionItem, String category, String originalAmount) {
@@ -341,140 +361,110 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         View deleteBackground = transactionItem.findViewById(R.id.deleteBackground);
         
         final boolean[] isAnimating = {false};
+        final float[] initialX = {0};
+        final float[] initialY = {0};
+        final boolean[] isSwipeStarted = {false};
         
-        GestureDetector gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
-            private static final int SWIPE_THRESHOLD = 200; // Increased threshold
-            private static final int SWIPE_VELOCITY_THRESHOLD = 150; // Increased velocity threshold
-
-            @Override
-            public boolean onDown(MotionEvent e) {
-                return true;
-            }
-
-            @Override
-            public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-                if (e1 == null || e2 == null || isAnimating[0]) return false;
-                
-                float diffX = e2.getX() - e1.getX();
-                
-                // Only handle horizontal scrolling
-                if (Math.abs(diffX) > Math.abs(e2.getY() - e1.getY())) {
-                    // Get the width of the view for full swipe calculation
-                    int viewWidth = foregroundView.getWidth();
-                    
-                    // Limit the translation - allow full swipe to edges
-                    float translationX = Math.max(-viewWidth, Math.min(viewWidth, diffX));
-                    
-                    foregroundView.setTranslationX(translationX);
-                    
-                    if (translationX > 0) {
-                        // Swiping right - show edit background
-                        editBackground.setVisibility(View.VISIBLE);
-                        deleteBackground.setVisibility(View.GONE);
-                        // Make background fully visible as we approach full swipe
-                        editBackground.setAlpha(Math.min(1.0f, Math.abs(translationX) / (viewWidth * 0.3f)));
-                    } else if (translationX < 0) {
-                        // Swiping left - show delete background
-                        deleteBackground.setVisibility(View.VISIBLE);
-                        editBackground.setVisibility(View.GONE);
-                        // Make background fully visible as we approach full swipe
-                        deleteBackground.setAlpha(Math.min(1.0f, Math.abs(translationX) / (viewWidth * 0.3f)));
-                    } else {
-                        editBackground.setVisibility(View.GONE);
-                        deleteBackground.setVisibility(View.GONE);
-                    }
-                    
-                    return true;
-                }
-                return false;
-            }
-
-            @Override
-            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-                if (e1 == null || e2 == null || isAnimating[0]) return false;
-                
-                try {
-                    float diffY = e2.getY() - e1.getY();
-                    float diffX = e2.getX() - e1.getX();
-                    int viewWidth = foregroundView.getWidth();
-                    
-                    android.util.Log.d("SwipeGesture", "diffX: " + diffX + ", diffY: " + diffY + ", velocityX: " + velocityX + ", viewWidth: " + viewWidth);
-                    
-                    // Check if it's a horizontal swipe (more horizontal than vertical)
-                    if (Math.abs(diffX) > Math.abs(diffY)) {
-                        // Check if swipe distance is significant (at least 60% of view width) OR high velocity
-                        boolean significantDistance = Math.abs(diffX) > (viewWidth * 0.6);
-                        boolean highVelocity = Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD;
-                        
-                        if (significantDistance || (Math.abs(diffX) > SWIPE_THRESHOLD && highVelocity)) {
-                            android.util.Log.d("SwipeGesture", "Swipe detected! Direction: " + (diffX > 0 ? "RIGHT" : "LEFT"));
-                            
-                            isAnimating[0] = true;
-                            
-                            if (diffX > 0) {
-                                // Swipe from left to right - Edit transaction
-                                android.util.Log.d("SwipeGesture", "Triggering EDIT");
-                                animateAndTriggerEdit(foregroundView, editBackground, deleteBackground, transactionItem, category, originalAmount, isAnimating);
-                                return true;
-                            } else {
-                                // Swipe from right to left - Delete transaction
-                                android.util.Log.d("SwipeGesture", "Triggering DELETE");
-                                animateAndTriggerDelete(foregroundView, editBackground, deleteBackground, transactionItem, originalAmount, isAnimating);
-                                return true;
-                            }
-                        } else {
-                            // Not enough swipe distance/velocity - snap back
-                            snapBack(foregroundView, editBackground, deleteBackground);
-                            android.util.Log.d("SwipeGesture", "Swipe too short or slow - snapping back. Distance: " + Math.abs(diffX) + ", Required: " + (viewWidth * 0.6));
-                        }
-                    } else {
-                        // Not horizontal swipe - snap back
-                        snapBack(foregroundView, editBackground, deleteBackground);
-                        android.util.Log.d("SwipeGesture", "Not horizontal swipe");
-                    }
-                } catch (Exception exception) {
-                    android.util.Log.e("SwipeGesture", "Error in swipe detection", exception);
-                    exception.printStackTrace();
-                }
-                return false;
-            }
-        });
-
         transactionItem.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                boolean result = gestureDetector.onTouchEvent(event);
+                if (isAnimating[0]) return true;
                 
-                // Handle touch up event to snap back if not enough swipe
-                if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-                    if (!isAnimating[0]) {
-                        float currentTranslation = foregroundView.getTranslationX();
-                        int viewWidth = foregroundView.getWidth();
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        initialX[0] = event.getX();
+                        initialY[0] = event.getY();
+                        isSwipeStarted[0] = false;
+                        return true;
                         
-                        // Only trigger action if swiped more than 70% of the width
-                        if (Math.abs(currentTranslation) > (viewWidth * 0.7)) {
-                            isAnimating[0] = true;
-                            if (currentTranslation > 0) {
-                                // Complete edit swipe
-                                animateAndTriggerEdit(foregroundView, editBackground, deleteBackground, transactionItem, category, originalAmount, isAnimating);
-                            } else {
-                                // Complete delete swipe
-                                animateAndTriggerDelete(foregroundView, editBackground, deleteBackground, transactionItem, originalAmount, isAnimating);
+                    case MotionEvent.ACTION_MOVE:
+                        if (foregroundView.getWidth() == 0) return false;
+                        
+                        float deltaX = event.getX() - initialX[0];
+                        float deltaY = event.getY() - initialY[0];
+                        
+                        // Check if this is a horizontal swipe
+                        if (!isSwipeStarted[0]) {
+                            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 20) {
+                                isSwipeStarted[0] = true;
+                                // Request that parent views don't intercept touch events
+                                v.getParent().requestDisallowInterceptTouchEvent(true);
+                            } else if (Math.abs(deltaY) > 20) {
+                                // This is a vertical scroll, let parent handle it
+                                return false;
                             }
-                        } else {
-                            // Not enough swipe - snap back
-                            snapBack(foregroundView, editBackground, deleteBackground);
                         }
-                    }
+                        
+                        if (isSwipeStarted[0]) {
+                            int viewWidth = foregroundView.getWidth();
+                            
+                            // Limit the translation to view bounds
+                            float translationX = Math.max(-viewWidth * 0.8f, Math.min(viewWidth * 0.8f, deltaX));
+                            
+                            foregroundView.setTranslationX(translationX);
+                            
+                            if (translationX > 50) {
+                                // Swiping right - show edit background
+                                editBackground.setVisibility(View.VISIBLE);
+                                deleteBackground.setVisibility(View.GONE);
+                                // Gradual alpha based on swipe distance
+                                float alpha = Math.min(1.0f, Math.abs(translationX) / (viewWidth * 0.4f));
+                                editBackground.setAlpha(alpha);
+                            } else if (translationX < -50) {
+                                // Swiping left - show delete background
+                                deleteBackground.setVisibility(View.VISIBLE);
+                                editBackground.setVisibility(View.GONE);
+                                // Gradual alpha based on swipe distance
+                                float alpha = Math.min(1.0f, Math.abs(translationX) / (viewWidth * 0.4f));
+                                deleteBackground.setAlpha(alpha);
+                            } else {
+                                editBackground.setVisibility(View.GONE);
+                                deleteBackground.setVisibility(View.GONE);
+                            }
+                            
+                            return true;
+                        }
+                        break;
+                        
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        v.getParent().requestDisallowInterceptTouchEvent(false);
+                        
+                        if (isSwipeStarted[0] && !isAnimating[0]) {
+                            float currentTranslation = foregroundView.getTranslationX();
+                            int viewWidth = foregroundView.getWidth();
+                            
+                            // Lower threshold for triggering actions (40% instead of 70%)
+                            float threshold = viewWidth * 0.4f;
+                            
+                            if (Math.abs(currentTranslation) > threshold) {
+                                isAnimating[0] = true;
+                                if (currentTranslation > 0) {
+                                    // Complete edit swipe
+                                    animateAndTriggerEdit(foregroundView, editBackground, deleteBackground, transactionItem, category, originalAmount, isAnimating);
+                                } else {
+                                    // Complete delete swipe
+                                    animateAndTriggerDelete(foregroundView, editBackground, deleteBackground, transactionItem, originalAmount, isAnimating);
+                                }
+                            } else {
+                                // Not enough swipe - snap back
+                                snapBack(foregroundView, editBackground, deleteBackground);
+                            }
+                        }
+                        return true;
                 }
                 
-                return result || event.getAction() != MotionEvent.ACTION_DOWN;
+                return false;
             }
         });
     }
 
     private void snapBack(View foregroundView, View editBackground, View deleteBackground) {
-        ObjectAnimator.ofFloat(foregroundView, "translationX", 0).setDuration(200).start();
+        ObjectAnimator animator = ObjectAnimator.ofFloat(foregroundView, "translationX", 0);
+        animator.setDuration(150); // Faster animation
+        animator.start();
+        
+        // Hide backgrounds immediately for better responsiveness
         editBackground.setVisibility(View.GONE);
         deleteBackground.setVisibility(View.GONE);
     }
@@ -484,15 +474,15 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         // Animate to completely off-screen to the right
         int viewWidth = foregroundView.getWidth();
         ObjectAnimator animator = ObjectAnimator.ofFloat(foregroundView, "translationX", viewWidth);
-        animator.setDuration(300);
+        animator.setDuration(200); // Faster animation
         animator.start();
         
-        // Show edit dialog after animation completes
+        // Show edit dialog after a shorter delay
         foregroundView.postDelayed(() -> {
             snapBack(foregroundView, editBackground, deleteBackground);
             isAnimating[0] = false;
             onSwipeRight(transactionItem, category, originalAmount);
-        }, 350);
+        }, 220);
     }
 
     private void animateAndTriggerDelete(View foregroundView, View editBackground, View deleteBackground,
@@ -500,15 +490,15 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         // Animate to completely off-screen to the left
         int viewWidth = foregroundView.getWidth();
         ObjectAnimator animator = ObjectAnimator.ofFloat(foregroundView, "translationX", -viewWidth);
-        animator.setDuration(300);
+        animator.setDuration(200); // Faster animation
         animator.start();
         
-        // Show delete dialog after animation completes
+        // Show delete dialog after a shorter delay
         foregroundView.postDelayed(() -> {
             snapBack(foregroundView, editBackground, deleteBackground);
             isAnimating[0] = false;
             onSwipeLeft(transactionItem, originalAmount);
-        }, 350);
+        }, 220);
     }
 
     private void onSwipeLeft(View transactionItem, String originalAmount) {
@@ -537,7 +527,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             // Parse the original amount and add it back to the budget
             double amountValue = Double.parseDouble(originalAmount.replaceAll("[^\\d.]", ""));
             currentBudget += amountValue;
-            budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+            updateBudgetDisplay();
             
             // Get the expense ID from the transaction item's tag
             String expenseId = (String) transactionItem.getTag();
@@ -555,7 +545,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                             Toast.makeText(this, "Failed to delete expense from database", Toast.LENGTH_SHORT).show();
                             // Revert budget change if deletion failed
                             currentBudget -= amountValue;
-                            budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                            updateBudgetDisplay();
                             return;
                         });
             } else {
@@ -634,13 +624,8 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             double difference = newAmountValue - oldAmountValue;
             currentBudget -= difference;
             
-            // Make sure budget doesn't go below zero
-            if (currentBudget < 0) {
-                currentBudget = 0;
-            }
-            
-            // Update budget display
-            budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+            // Update budget display (allow negative values)
+            updateBudgetDisplay();
             
             // Get the expense ID from the transaction item's tag
             String expenseId = (String) transactionItem.getTag();
@@ -671,7 +656,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                             Toast.makeText(this, "Failed to update expense in database", Toast.LENGTH_SHORT).show();
                             // Revert budget change if update failed
                             currentBudget += difference;
-                            budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                            updateBudgetDisplay();
                             return;
                         });
             } else {
@@ -732,7 +717,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     if (newBudget >= 0) {
                         // Update the budget
                         currentBudget = newBudget;
-                        budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                        updateBudgetDisplay();
                         
                         // Update budget in Firebase
                         updateBudgetInFirebase();
@@ -761,12 +746,12 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         User user = documentSnapshot.toObject(User.class);
                         if (user != null) {
                             currentBudget = user.getBudget();
-                            budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                            updateBudgetDisplay();
                             Log.d(TAG, "User budget loaded: " + currentBudget);
                         }
                     } else {
                         Log.d(TAG, "No user profile found, using default budget");
-                        budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                        updateBudgetDisplay();
                     }
                     
                     // After loading user data, load today's expenses
@@ -777,7 +762,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     Log.w(TAG, "Error loading user data", e);
-                    budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                    updateBudgetDisplay();
                     
                     // Even if user data fails, try to load expenses
                     loadTodaysExpenses();
