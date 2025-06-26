@@ -42,10 +42,16 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     private static final String TAG = "ExpenseTrackingActivity";
     
     private BottomSheetDialog categoryBottomSheet;
+    private View categoryBottomSheetView;
     private double currentBudget = 2000.00; // Default budget
     private TextView budgetAmountText;
     private FirebaseManager firebaseManager;
     private String currentUserId;
+    
+    // Track which meal categories have been used today
+    private boolean breakfastUsed = false;
+    private boolean lunchUsed = false;
+    private boolean dinnerUsed = false;
 
     @Override
     public void onCreate(Bundle saveInstanceState) {
@@ -118,31 +124,43 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     private void setupCategoryBottomSheet() {
         // Initialize the bottom sheet dialog with transparent background (no dimming)
         categoryBottomSheet = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
-        View bottomSheetView = getLayoutInflater().inflate(R.layout.category_bottom_sheet, null);
-        categoryBottomSheet.setContentView(bottomSheetView);
+        categoryBottomSheetView = getLayoutInflater().inflate(R.layout.category_bottom_sheet, null);
+        categoryBottomSheet.setContentView(categoryBottomSheetView);
         // Remove the dim effect
         if (categoryBottomSheet.getWindow() != null) {
             categoryBottomSheet.getWindow().setDimAmount(0f);
         }
 
         // Set up click listeners for each category
-        View breakfastOption = bottomSheetView.findViewById(R.id.breakfastOption);
-        View lunchOption = bottomSheetView.findViewById(R.id.lunchOption);
-        View dinnerOption = bottomSheetView.findViewById(R.id.dinnerOption);
-        View othersOption = bottomSheetView.findViewById(R.id.othersOption);
+        View breakfastOption = categoryBottomSheetView.findViewById(R.id.breakfastOption);
+        View lunchOption = categoryBottomSheetView.findViewById(R.id.lunchOption);
+        View dinnerOption = categoryBottomSheetView.findViewById(R.id.dinnerOption);
+        View othersOption = categoryBottomSheetView.findViewById(R.id.othersOption);
 
         // Set click listeners for each category
         breakfastOption.setOnClickListener(v -> handleCategorySelection("Breakfast"));
         lunchOption.setOnClickListener(v -> handleCategorySelection("Lunch"));
         dinnerOption.setOnClickListener(v -> handleCategorySelection("Dinner"));
         othersOption.setOnClickListener(v -> handleCategorySelection("Others"));
+        
+        // Update the category states when the bottom sheet is shown
+        updateCategoryStates(categoryBottomSheetView);
     }    private void showCategoryOptions() {
         if (categoryBottomSheet != null) {
+            // Update category states before showing
+            updateCategoryStates(categoryBottomSheetView);
+            
             // Set behavior to eliminate background dimming effect
             categoryBottomSheet.getBehavior().setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
             categoryBottomSheet.show();
         }
     }    private void handleCategorySelection(String category) {
+        // Check if the category is disabled for meal types
+        if (isCategoryDisabled(category)) {
+            Toast.makeText(this, category + " has already been added today", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
         // Close the bottom sheet
         if (categoryBottomSheet != null && categoryBottomSheet.isShowing()) {
             categoryBottomSheet.dismiss();
@@ -205,6 +223,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             
             // Add the transaction to the transactions container
             addTransactionToView(category, amount);
+            
+            // Mark the category as used if it's a meal type
+            markCategoryAsUsed(category);
             
             Toast.makeText(this, category + " expense added: P" + String.format("%.2f", expenseAmount), Toast.LENGTH_SHORT).show();
         } catch (NumberFormatException e) {
@@ -509,6 +530,10 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
 
     private void deleteTransaction(View transactionItem, String originalAmount) {
         try {
+            // Get the category from the transaction item before deletion
+            TextView categoryNameView = transactionItem.findViewById(R.id.categoryName);
+            String category = categoryNameView != null ? categoryNameView.getText().toString() : "";
+            
             // Parse the original amount and add it back to the budget
             double amountValue = Double.parseDouble(originalAmount.replaceAll("[^\\d.]", ""));
             currentBudget += amountValue;
@@ -542,6 +567,12 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             // Remove the transaction item from the container
             LinearLayout container = findViewById(R.id.transactionsContainer);
             container.removeView(transactionItem);
+            
+            // Mark the category as unused if it's a meal type
+            if (!category.isEmpty()) {
+                markCategoryAsUnused(category);
+                Log.d(TAG, "Marked category as unused: " + category);
+            }
             
             Toast.makeText(this, "Transaction deleted", Toast.LENGTH_SHORT).show();
         } catch (NumberFormatException e) {
@@ -881,6 +912,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         addTransactionToView(expense.getCategory(), String.format("%.2f", expense.getAmount()), expense.getId());
                     }
                     
+                    // Check which categories are already used after loading expenses
+                    checkExistingCategoriesForToday();
+                    
                     Log.d(TAG, "Finished loading " + todayExpenses.size() + " expenses for today");
                 })
                 .addOnFailureListener(e -> {
@@ -916,6 +950,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         }
                     }
                     
+                    // Check which categories are already used after loading expenses
+                    checkExistingCategoriesForToday();
+                    
                     Log.d(TAG, "Found " + todayCount + " expenses for today using alternative method");
                 })
                 .addOnFailureListener(e -> {
@@ -944,6 +981,8 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         // Refresh today's expenses when the activity resumes
         if (currentUserId != null) {
             Log.d(TAG, "Activity resumed, refreshing today's expenses");
+            // Reset category states first, they will be set correctly after loading expenses
+            resetDailyCategoryStates();
             loadTodaysExpenses();
         }
     }
@@ -976,5 +1015,110 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     Log.w(TAG, "Debug query failed", e);
                 });
+    }
+    
+    // Helper methods for category management
+    private boolean isCategoryDisabled(String category) {
+        switch (category.toLowerCase()) {
+            case "breakfast":
+                return breakfastUsed;
+            case "lunch":
+                return lunchUsed;
+            case "dinner":
+                return dinnerUsed;
+            default:
+                return false; // Others category is never disabled
+        }
+    }
+    
+    private void markCategoryAsUsed(String category) {
+        switch (category.toLowerCase()) {
+            case "breakfast":
+                breakfastUsed = true;
+                break;
+            case "lunch":
+                lunchUsed = true;
+                break;
+            case "dinner":
+                dinnerUsed = true;
+                break;
+            // Others category doesn't get marked as used
+        }
+    }
+    
+    private void markCategoryAsUnused(String category) {
+        switch (category.toLowerCase()) {
+            case "breakfast":
+                breakfastUsed = false;
+                break;
+            case "lunch":
+                lunchUsed = false;
+                break;
+            case "dinner":
+                dinnerUsed = false;
+                break;
+            // Others category doesn't get marked as unused
+        }
+    }
+    
+    private void updateCategoryStates(View bottomSheetView) {
+        if (bottomSheetView == null) return;
+        
+        View breakfastOption = bottomSheetView.findViewById(R.id.breakfastOption);
+        View lunchOption = bottomSheetView.findViewById(R.id.lunchOption);
+        View dinnerOption = bottomSheetView.findViewById(R.id.dinnerOption);
+        View othersOption = bottomSheetView.findViewById(R.id.othersOption);
+        
+        // Update breakfast state
+        if (breakfastOption != null) {
+            breakfastOption.setEnabled(!breakfastUsed);
+            breakfastOption.setAlpha(breakfastUsed ? 0.5f : 1.0f);
+        }
+        
+        // Update lunch state
+        if (lunchOption != null) {
+            lunchOption.setEnabled(!lunchUsed);
+            lunchOption.setAlpha(lunchUsed ? 0.5f : 1.0f);
+        }
+        
+        // Update dinner state
+        if (dinnerOption != null) {
+            dinnerOption.setEnabled(!dinnerUsed);
+            dinnerOption.setAlpha(dinnerUsed ? 0.5f : 1.0f);
+        }
+        
+        // Others option is always enabled
+        if (othersOption != null) {
+            othersOption.setEnabled(true);
+            othersOption.setAlpha(1.0f);
+        }
+    }
+    
+    private void resetDailyCategoryStates() {
+        breakfastUsed = false;
+        lunchUsed = false;
+        dinnerUsed = false;
+    }
+    
+    private void checkExistingCategoriesForToday() {
+        // This method will be called after loading today's expenses
+        // to set the correct category states based on existing expenses
+        LinearLayout container = findViewById(R.id.transactionsContainer);
+        
+        // Reset states first
+        resetDailyCategoryStates();
+        
+        // Check each transaction item to see which categories are already used
+        for (int i = 0; i < container.getChildCount(); i++) {
+            View child = container.getChildAt(i);
+            TextView categoryName = child.findViewById(R.id.categoryName);
+            if (categoryName != null) {
+                String category = categoryName.getText().toString().toLowerCase();
+                markCategoryAsUsed(category);
+            }
+        }
+        
+        Log.d(TAG, "Category states after check - Breakfast: " + breakfastUsed + 
+              ", Lunch: " + lunchUsed + ", Dinner: " + dinnerUsed);
     }
 }
