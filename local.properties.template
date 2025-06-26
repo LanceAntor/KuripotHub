@@ -1,0 +1,10 @@
+# Firebase Configuration
+# Copy this file to local.properties and fill in your actual values
+# This file is ignored by git for security
+
+# Firebase Project Configuration
+FIREBASE_PROJECT_ID=your-project-id-here
+FIREBASE_PROJECT_NUMBER=your-project-number-here
+FIREBASE_APP_ID=your-app-id-here
+FIREBASE_API_KEY=your-api-key-here
+FIREBASE_STORAGE_BUCKET=your-project-id.firebasestorage.app

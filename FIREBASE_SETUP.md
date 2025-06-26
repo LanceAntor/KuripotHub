@@ -1,64 +1,94 @@
 # KuripotHub Firebase Setup
 
-## ⚠️ Important: Firebase Configuration Required
+## ✅ Current Status: New Firebase Project Configured
 
-This project uses Firebase for authentication and data storage. You need to set up your own Firebase project and configuration.
+Your app is now configured with a fresh Firebase project: `kuripothub-6172a`
 
-### Step 1: Create Firebase Project
+## 🔥 Firebase Services Enabled
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Click "Add project"
-3. Enter project name: "KuripotHub" (or your preferred name)
-4. Follow the setup wizard
+Make sure these services are enabled in your Firebase Console:
 
-### Step 2: Add Android App
+### 1. Authentication
+- Go to: https://console.firebase.google.com/project/kuripothub-6172a/authentication
+- Enable **Email/Password** sign-in method
 
-1. In Firebase Console, click "Add app" → Android
-2. Enter package name: `com.example.kuripothub`
-3. Download the `google-services.json` file
-4. Place it in the `app/` directory (replace the template file)
+### 2. Firestore Database
+- Go to: https://console.firebase.google.com/project/kuripothub-6172a/firestore
+- Create database in **test mode** for development
+- Choose your preferred region
 
-### Step 3: Enable Firebase Services
+## 🛡️ Security Configuration
 
-#### Authentication:
-1. Go to Authentication → Sign-in method
-2. Enable "Email/Password" provider
+### Current Setup:
+- ✅ `google-services.json` is properly excluded from git
+- ✅ Fresh API keys are being used
+- ✅ Old compromised keys are no longer in the repository
 
-#### Firestore Database:
-1. Go to Firestore Database
-2. Click "Create database"
-3. Choose "Start in test mode"
-4. Select your preferred location
-
-### Step 4: Replace Configuration File
-
-1. Copy your downloaded `google-services.json` to `app/google-services.json`
-2. The file should contain your actual Firebase project credentials
-3. **Never commit this file to version control** (it's already in .gitignore)
-
-### Step 5: Build and Run
-
-```bash
-./gradlew build
+### File Structure:
+```
+app/
+├── google-services.json          ← Your actual config (NOT in git)
+└── google-services.json.template ← Reference template (safe for git)
 ```
 
-## Security Note
+## 🚀 Testing Your Setup
 
-The `google-services.json` file contains sensitive API keys and should never be committed to version control. This repository includes a template file for reference only.
+1. **Build the project**:
+   ```bash
+   ./gradlew build
+   ```
 
-## Project Structure
+2. **Test authentication**:
+   - Run the app
+   - Try creating a new account in SignUpActivity
+   - Verify login works in LoginActivity
 
-```
-KuripotHub/
-├── app/
-│   ├── google-services.json          ← Your actual Firebase config (not in repo)
-│   ├── google-services.json.template ← Template for reference
-│   └── src/
-└── .gitignore                        ← Excludes sensitive files
-```
+3. **Test Firestore**:
+   - Add an expense in the main screen
+   - Check if data appears in Firebase Console → Firestore
 
-## Troubleshooting
+## 🔧 App Features Ready:
 
-- If you get build errors, ensure `google-services.json` is in the correct location
-- Make sure Firebase services are enabled in your Firebase project
-- Check that your package name matches exactly: `com.example.kuripothub`
+- ✅ **User Authentication** (signup/login)
+- ✅ **Expense Tracking** (add/view expenses)
+- ✅ **Budget Management** (set/update budget)
+- ✅ **Transaction History** (view past expenses)
+- ✅ **Logout Functionality** (custom dialog)
+
+## 📱 Testing Checklist:
+
+1. **Loading Screen** → Shows app logo and transitions
+2. **Login/Signup** → Firebase authentication working
+3. **Main Expense Screen** → Add expenses, manage budget
+4. **Settings Icon** → Logout dialog appears
+5. **Transaction History** → Calendar view works
+
+## ⚠️ Important Notes:
+
+- **Never commit** `google-services.json` to version control
+- **Test with real devices** for best Firebase performance  
+- **Enable app restrictions** in Firebase Console for production
+
+## 🆘 Troubleshooting:
+
+### Build Errors:
+- Ensure `google-services.json` is in `app/` directory
+- Verify internet connection for Firebase
+- Clean and rebuild: `./gradlew clean build`
+
+### Authentication Issues:
+- Check Firebase Console → Authentication → Users
+- Verify email/password is enabled
+- Check app package name matches: `com.example.kuripothub`
+
+### Firestore Issues:
+- Verify database is created and in test mode
+- Check Firestore rules allow read/write
+- Monitor Firebase Console for real-time data
+
+## 🎯 Next Steps:
+
+1. Test all app features thoroughly
+2. Set up Firestore security rules for production
+3. Configure app signing for release builds
+4. Consider adding more authentication methods (Google, etc.)
