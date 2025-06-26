@@ -8,7 +8,69 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
 /build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Firebase configuration files (contain sensitive API keys)
+google-services.json
+app/google-services.json
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# API keys and secrets
+secrets.properties
+keystore.properties
+
+# Firebase debug files
+firebase-debug.log
+firestore-debug.log
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Firebase configuration files (contain sensitive API keys)
+google-services.json
+app/google-services.json
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# API keys and secrets
+secrets.properties
+keystore.properties
+
+# Firebase debug files
+firebase-debug.log
+firestore-debug.log
 /captures
 .externalNativeBuild
 .cxx
