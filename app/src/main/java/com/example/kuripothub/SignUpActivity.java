@@ -6,7 +6,6 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
@@ -25,7 +24,6 @@ public class SignUpActivity extends AppCompatActivity {
     private EditText confirmPasswordInput;
     private CardView submitButton;
     private TextView loginLink;
-    private ProgressBar progressBar;
     
     private FirebaseManager firebaseManager;
 
@@ -51,9 +49,6 @@ public class SignUpActivity extends AppCompatActivity {
         confirmPasswordInput = findViewById(R.id.confirmPasswordInput);
         submitButton = findViewById(R.id.submitButton);
         loginLink = findViewById(R.id.loginLink);
-        
-        // Try to find progress bar
-        progressBar = findViewById(R.id.progressBar);
     }
 
     private void setupClickListeners() {
@@ -112,10 +107,14 @@ public class SignUpActivity extends AppCompatActivity {
             return;
         }
 
-        showProgress(true);
+        // Disable submit button during signup
+        submitButton.setEnabled(false);
         
         firebaseManager.signUpWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
+                    // Re-enable submit button
+                    submitButton.setEnabled(true);
+                    
                     if (task.isSuccessful()) {
                         Log.d(TAG, "createUserWithEmail:success");
                         FirebaseUser firebaseUser = firebaseManager.getCurrentUser();
@@ -131,8 +130,6 @@ public class SignUpActivity extends AppCompatActivity {
                             
                             firebaseManager.createUserProfile(user)
                                     .addOnCompleteListener(profileTask -> {
-                                        showProgress(false);
-                                        
                                         if (profileTask.isSuccessful()) {
                                             Toast.makeText(SignUpActivity.this, 
                                                 "Registration successful!", Toast.LENGTH_SHORT).show();
@@ -147,7 +144,6 @@ public class SignUpActivity extends AppCompatActivity {
                                     });
                         }
                     } else {
-                        showProgress(false);
                         Log.w(TAG, "createUserWithEmail:failure", task.getException());
                         String errorMessage = "Registration failed.";
                         if (task.getException() != null) {
@@ -171,16 +167,6 @@ public class SignUpActivity extends AppCompatActivity {
 
     private boolean isValidEmail(String email) {
         return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches();
-    }
-    
-    private void showProgress(boolean show) {
-        if (progressBar != null) {
-            progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
-        }
-        submitButton.setEnabled(!show);
-        emailInput.setEnabled(!show);
-        passwordInput.setEnabled(!show);
-        confirmPasswordInput.setEnabled(!show);
     }
 
     @Override
