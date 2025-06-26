@@ -55,5 +55,10 @@
             android:name=".LoginActivity"
             android:exported="false">
         </activity>
+        
+        <activity
+            android:name=".PersonaActivity"
+            android:exported="false">
+        </activity>
     </application>
 </manifest>

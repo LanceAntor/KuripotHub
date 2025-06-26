@@ -116,7 +116,16 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         settingsIcon.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                showLogoutDialog();
+                openPersonaActivity();
+            }
+        });
+        
+        // Set click listener for Grid/Menu icon
+        ImageView gridIcon = findViewById(R.id.gridIcon);
+        gridIcon.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                openPersonaActivity();
             }
         });
     }
@@ -306,6 +315,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 categoryIcon.setImageResource(R.drawable.coffee); // Default icon
                 break;
         }
+        
+        // Mark category as used for meal restrictions
+        markCategoryAsUsed(category);
         
         // Add swipe functionality to the transaction item
         setupSwipeGesture(transactionItem, category, amountStr);
@@ -847,6 +859,11 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         startActivity(new Intent(this, LoginActivity.class));
         finish();
     }
+    
+    private void openPersonaActivity() {
+        Intent intent = new Intent(this, PersonaActivity.class);
+        startActivity(intent);
+    }
 
     private void loadTodaysExpenses() {
         if (currentUserId == null) {
@@ -897,9 +914,6 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         addTransactionToView(expense.getCategory(), String.format("%.2f", expense.getAmount()), expense.getId());
                     }
                     
-                    // Check which categories are already used after loading expenses
-                    checkExistingCategoriesForToday();
-                    
                     Log.d(TAG, "Finished loading " + todayExpenses.size() + " expenses for today");
                 })
                 .addOnFailureListener(e -> {
@@ -935,9 +949,6 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         }
                     }
                     
-                    // Check which categories are already used after loading expenses
-                    checkExistingCategoriesForToday();
-                    
                     Log.d(TAG, "Found " + todayCount + " expenses for today using alternative method");
                 })
                 .addOnFailureListener(e -> {
@@ -946,6 +957,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     }
     
     private void clearDynamicTransactions(LinearLayout container) {
+        // Reset category states when clearing transactions
+        resetDailyCategoryStates();
+        
         // Remove all views that are transaction items (not static headers)
         int childCount = container.getChildCount();
         for (int i = childCount - 1; i >= 0; i--) {
@@ -1087,7 +1101,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     
     private void checkExistingCategoriesForToday() {
         // This method will be called after loading today's expenses
-        // to set the correct category states based on existing expenses
+        // to set the correct category states based on loaded transaction items
         LinearLayout container = findViewById(R.id.transactionsContainer);
         
         // Reset states first
@@ -1100,6 +1114,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             if (categoryName != null) {
                 String category = categoryName.getText().toString().toLowerCase();
                 markCategoryAsUsed(category);
+                Log.d(TAG, "Found existing UI expense for category: " + category);
             }
         }
         
