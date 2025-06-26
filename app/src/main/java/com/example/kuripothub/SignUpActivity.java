@@ -52,8 +52,9 @@ public class SignUpActivity extends AppCompatActivity {
         loginLink.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Navigate to login screen (you can create this later)
-                Toast.makeText(SignUpActivity.this, "Navigate to Login", Toast.LENGTH_SHORT).show();
+                // Navigate to login screen
+                Intent intent = new Intent(SignUpActivity.this, LoginActivity.class);
+                startActivity(intent);
             }
         });
     }
