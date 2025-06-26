@@ -9,9 +9,9 @@
               <option name="connection">
                 <ConnectionSetting>
                   <option name="appId" value="com.example.kuripothub" />
-                  <option name="mobileSdkAppId" value="1:446172262764:android:6cc64a43e73bdf684cc349" />
-                  <option name="projectId" value="kuripothub-cce38" />
-                  <option name="projectNumber" value="446172262764" />
+                  <option name="mobileSdkAppId" value="1:411503683293:android:20be8aa8e122764a7edd34" />
+                  <option name="projectId" value="kuripothub-6172a" />
+                  <option name="projectNumber" value="411503683293" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

@@ -8,6 +8,7 @@ import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
@@ -93,17 +94,9 @@ public class FirebaseManager {
     }
     
     // Expense methods
-    public Task<Void> addExpense(Expense expense) {
+    public Task<DocumentReference> addExpense(Expense expense) {
         return firestore.collection(EXPENSES_COLLECTION)
-                .add(expense)
-                .continueWith(task -> {
-                    if (task.isSuccessful()) {
-                        String documentId = task.getResult().getId();
-                        expense.setId(documentId);
-                        Log.d(TAG, "Expense added with ID: " + documentId);
-                    }
-                    return null;
-                });
+                .add(expense);
     }
     
     public Task<QuerySnapshot> getUserExpenses(String userId) {
@@ -118,6 +111,14 @@ public class FirebaseManager {
                 .whereEqualTo("userId", userId)
                 .whereEqualTo("date", date)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
+                .get();
+    }
+    
+    public Task<QuerySnapshot> getUserExpensesByDateSimple(String userId, String date) {
+        // Simpler query without orderBy to avoid composite index requirement
+        return firestore.collection(EXPENSES_COLLECTION)
+                .whereEqualTo("userId", userId)
+                .whereEqualTo("date", date)
                 .get();
     }
     

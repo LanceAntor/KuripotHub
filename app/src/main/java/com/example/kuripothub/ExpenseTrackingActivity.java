@@ -32,7 +32,9 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 public class ExpenseTrackingActivity extends AppCompatActivity {
@@ -227,8 +229,17 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     }
     
     private void addTransactionToView(String category, String amountStr) {
+        addTransactionToView(category, amountStr, null);
+    }
+    
+    private void addTransactionToView(String category, String amountStr, String expenseId) {
         // Find the transactions container
         View transactionItem = getLayoutInflater().inflate(R.layout.transaction_item, null);
+        
+        // Store the expense ID as a tag for later deletion
+        if (expenseId != null) {
+            transactionItem.setTag(expenseId);
+        }
         
         // Set the category name
         TextView categoryName = transactionItem.findViewById(R.id.categoryName);
@@ -503,6 +514,31 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             currentBudget += amountValue;
             budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
             
+            // Get the expense ID from the transaction item's tag
+            String expenseId = (String) transactionItem.getTag();
+            
+            if (expenseId != null) {
+                // Delete from Firebase first
+                firebaseManager.deleteExpense(expenseId)
+                        .addOnSuccessListener(aVoid -> {
+                            Log.d(TAG, "Expense deleted from Firebase successfully");
+                            // Update budget in Firebase after successful deletion
+                            updateBudgetInFirebase();
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.w(TAG, "Error deleting expense from Firebase", e);
+                            Toast.makeText(this, "Failed to delete expense from database", Toast.LENGTH_SHORT).show();
+                            // Revert budget change if deletion failed
+                            currentBudget -= amountValue;
+                            budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                            return;
+                        });
+            } else {
+                Log.w(TAG, "No expense ID found for transaction item, skipping Firebase deletion");
+                // Still update budget in Firebase for local transactions
+                updateBudgetInFirebase();
+            }
+            
             // Remove the transaction item from the container
             LinearLayout container = findViewById(R.id.transactionsContainer);
             container.removeView(transactionItem);
@@ -574,6 +610,44 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             
             // Update budget display
             budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+            
+            // Get the expense ID from the transaction item's tag
+            String expenseId = (String) transactionItem.getTag();
+            
+            if (expenseId != null) {
+                // Create updated expense object
+                SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+                String currentDate = dateFormat.format(new Date());
+                
+                Expense updatedExpense = new Expense(
+                    currentUserId,
+                    category,
+                    newAmountValue,
+                    "", // Description can be empty for now
+                    currentDate
+                );
+                updatedExpense.setId(expenseId);
+                
+                // Update in Firebase
+                firebaseManager.updateExpense(expenseId, updatedExpense)
+                        .addOnSuccessListener(aVoid -> {
+                            Log.d(TAG, "Expense updated in Firebase successfully");
+                            // Update budget in Firebase after successful update
+                            updateBudgetInFirebase();
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.w(TAG, "Error updating expense in Firebase", e);
+                            Toast.makeText(this, "Failed to update expense in database", Toast.LENGTH_SHORT).show();
+                            // Revert budget change if update failed
+                            currentBudget += difference;
+                            budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                            return;
+                        });
+            } else {
+                Log.w(TAG, "No expense ID found for transaction item, skipping Firebase update");
+                // Still update budget in Firebase for local transactions
+                updateBudgetInFirebase();
+            }
             
             // Update the transaction amount display
             TextView transactionAmount = transactionItem.findViewById(R.id.transactionAmount);
@@ -663,10 +737,22 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         Log.d(TAG, "No user profile found, using default budget");
                         budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
                     }
+                    
+                    // After loading user data, load today's expenses
+                    loadTodaysExpenses();
+                    
+                    // Debug: Check all user expenses
+                    debugUserExpenses();
                 })
                 .addOnFailureListener(e -> {
                     Log.w(TAG, "Error loading user data", e);
                     budgetAmountText.setText("P" + String.format("%.2f", currentBudget));
+                    
+                    // Even if user data fails, try to load expenses
+                    loadTodaysExpenses();
+                    
+                    // Debug: Check all user expenses
+                    debugUserExpenses();
                 });
     }
     
@@ -674,6 +760,8 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         // Create current date string
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         String currentDate = dateFormat.format(new Date());
+        
+        Log.d(TAG, "Saving expense: " + category + " - P" + amount + " for date: " + currentDate);
         
         Expense expense = new Expense(
             currentUserId,
@@ -684,11 +772,20 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         );
         
         firebaseManager.addExpense(expense)
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Expense saved successfully");
+                .addOnSuccessListener(documentReference -> {
+                    String expenseId = documentReference.getId();
+                    Log.d(TAG, "Expense saved successfully to Firestore with ID: " + expenseId);
+                    
+                    // Find the most recently added transaction view and set its tag to the expense ID
+                    LinearLayout container = findViewById(R.id.transactionsContainer);
+                    if (container.getChildCount() > 0) {
+                        View mostRecentTransaction = container.getChildAt(0); // Most recent is at index 0
+                        mostRecentTransaction.setTag(expenseId);
+                        Log.d(TAG, "Set expense ID tag on transaction view: " + expenseId);
+                    }
                 })
                 .addOnFailureListener(e -> {
-                    Log.w(TAG, "Error saving expense", e);
+                    Log.w(TAG, "Error saving expense to Firestore", e);
                     Toast.makeText(this, "Failed to save expense", Toast.LENGTH_SHORT).show();
                 });
     }
@@ -733,5 +830,151 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         Toast.makeText(this, "Logged out successfully", Toast.LENGTH_SHORT).show();
         startActivity(new Intent(this, LoginActivity.class));
         finish();
+    }
+
+    private void loadTodaysExpenses() {
+        if (currentUserId == null) {
+            Log.w(TAG, "Cannot load expenses: currentUserId is null");
+            return;
+        }
+        
+        // Get today's date
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        String today = dateFormat.format(new Date());
+        
+        Log.d(TAG, "Loading today's expenses for user: " + currentUserId + ", date: " + today);
+        
+        // Try the simple date-based query first (no orderBy to avoid index issues)
+        firebaseManager.getUserExpensesByDateSimple(currentUserId, today)
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    Log.d(TAG, "Simple date query returned " + queryDocumentSnapshots.size() + " expenses");
+                    
+                    if (queryDocumentSnapshots.isEmpty()) {
+                        // If no results, try a broader query to check if there are any expenses for this user
+                        Log.d(TAG, "No expenses found for date, trying broader query...");
+                        loadTodaysExpensesAlternative();
+                        return;
+                    }
+                    
+                    // Clear existing transaction views
+                    LinearLayout transactionsContainer = findViewById(R.id.transactionsContainer);
+                    clearDynamicTransactions(transactionsContainer);
+                    
+                    // Add each expense to the UI and sort manually if needed
+                    List<Expense> todayExpenses = new ArrayList<>();
+                    for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
+                        Expense expense = document.toObject(Expense.class);
+                        if (expense != null) {
+                            expense.setId(document.getId()); // Set the document ID
+                            todayExpenses.add(expense);
+                            Log.d(TAG, "Found expense: " + expense.getCategory() + " - P" + expense.getAmount() + " (Date: " + expense.getDate() + ")");
+                        } else {
+                            Log.w(TAG, "Failed to convert document to Expense object: " + document.getId());
+                        }
+                    }
+                    
+                    // Sort by timestamp (newest first)
+                    todayExpenses.sort((e1, e2) -> Long.compare(e2.getTimestamp(), e1.getTimestamp()));
+                    
+                    // Add sorted expenses to UI
+                    for (Expense expense : todayExpenses) {
+                        addTransactionToView(expense.getCategory(), String.format("%.2f", expense.getAmount()), expense.getId());
+                    }
+                    
+                    Log.d(TAG, "Finished loading " + todayExpenses.size() + " expenses for today");
+                })
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "Error loading today's expenses with simple date query", e);
+                    // Try alternative method if date query fails
+                    loadTodaysExpensesAlternative();
+                });
+    }
+    
+    private void loadTodaysExpensesAlternative() {
+        // Fallback: Get all user expenses and filter locally for today
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        String today = dateFormat.format(new Date());
+        
+        Log.d(TAG, "Using alternative method to load today's expenses");
+        
+        firebaseManager.getUserExpenses(currentUserId)
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    Log.d(TAG, "Alternative query returned " + queryDocumentSnapshots.size() + " total expenses");
+                    
+                    // Clear existing transaction views
+                    LinearLayout transactionsContainer = findViewById(R.id.transactionsContainer);
+                    clearDynamicTransactions(transactionsContainer);
+                    
+                    int todayCount = 0;
+                    // Filter for today's expenses
+                    for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
+                        Expense expense = document.toObject(Expense.class);
+                        if (expense != null && today.equals(expense.getDate())) {
+                            addTransactionToView(expense.getCategory(), String.format("%.2f", expense.getAmount()), document.getId());
+                            Log.d(TAG, "Found today's expense: " + expense.getCategory() + " - P" + expense.getAmount());
+                            todayCount++;
+                        }
+                    }
+                    
+                    Log.d(TAG, "Found " + todayCount + " expenses for today using alternative method");
+                })
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "Error loading expenses with alternative method", e);
+                });
+    }
+    
+    private void clearDynamicTransactions(LinearLayout container) {
+        // Remove all views that are transaction items (not static headers)
+        int childCount = container.getChildCount();
+        for (int i = childCount - 1; i >= 0; i--) {
+            View child = container.getChildAt(i);
+            // Check if it's a dynamically added transaction item
+            // Transaction items are inflated from R.layout.transaction_item
+            if (child.findViewById(R.id.categoryName) != null && 
+                child.findViewById(R.id.transactionAmount) != null) {
+                container.removeViewAt(i);
+                Log.d(TAG, "Removed existing transaction item at index: " + i);
+            }
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Refresh today's expenses when the activity resumes
+        if (currentUserId != null) {
+            Log.d(TAG, "Activity resumed, refreshing today's expenses");
+            loadTodaysExpenses();
+        }
+    }
+    
+    private void debugUserExpenses() {
+        if (currentUserId == null) return;
+        
+        Log.d(TAG, "=== DEBUG: Checking all user expenses ===");
+        firebaseManager.getUserExpenses(currentUserId)
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    Log.d(TAG, "Total user expenses: " + queryDocumentSnapshots.size());
+                    
+                    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+                    String today = dateFormat.format(new Date());
+                    
+                    int todayCount = 0;
+                    for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
+                        Expense expense = document.toObject(Expense.class);
+                        if (expense != null) {
+                            Log.d(TAG, "Expense: " + expense.getCategory() + " - P" + expense.getAmount() + 
+                                  " (Date: " + expense.getDate() + ", Today: " + today + ", Match: " + today.equals(expense.getDate()) + ")");
+                            if (today.equals(expense.getDate())) {
+                                todayCount++;
+                            }
+                        }
+                    }
+                    Log.d(TAG, "Expenses for today (" + today + "): " + todayCount);
+                    Log.d(TAG, "=== END DEBUG ===");
+                })
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "Debug query failed", e);
+                });
     }
 }
