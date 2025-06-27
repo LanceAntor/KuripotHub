@@ -26,6 +26,24 @@
 
             <!-- Blue line at the top -->
 
+            <!-- Category Icon -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_gravity="center"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="4dp">
+
+                <ImageView
+                    android:id="@+id/categoryIcon"
+                    android:layout_width="45dp"
+                    android:layout_height="45dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Category icon"
+                    android:src="@drawable/coffee" />
+            </androidx.cardview.widget.CardView>
 
             <!-- Category Title -->
             <TextView
