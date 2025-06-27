@@ -23,7 +23,7 @@
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:src="@android:drawable/ic_menu_edit"
-                android:tint="@android:color/black" />
+                app:tint="@android:color/black" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -59,7 +59,7 @@
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:src="@android:drawable/ic_menu_delete"
-                android:tint="@android:color/white" />
+                app:tint="@android:color/white" />
         </LinearLayout>
 
         <!-- Main Transaction Content -->
@@ -73,24 +73,26 @@
             android:paddingEnd="16dp">
 
         <!-- Category Icon Container -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/categoryIconContainer"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
-            app:cardBackgroundColor="#FFDD00"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/categoryIconContainer"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@color/yellow"
+                app:strokeColor="@android:color/black"
+                app:strokeWidth="2dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
 
-            <ImageView
-                android:id="@+id/categoryIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_gravity="center"
-                android:src="@drawable/coffee" />
-        </androidx.cardview.widget.CardView>
+                <ImageView
+                    android:id="@+id/categoryIcon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/coffee" />
+            </com.google.android.material.card.MaterialCardView>
 
         <!-- Category Name -->
         <TextView

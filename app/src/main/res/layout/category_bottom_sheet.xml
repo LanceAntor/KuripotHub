@@ -28,11 +28,13 @@
             android:gravity="center"
             android:orientation="vertical">
 
-            <androidx.cardview.widget.CardView
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="60dp"
                 android:layout_height="60dp"
                 app:cardCornerRadius="30dp"
                 app:cardElevation="2dp"
+                app:strokeColor="@color/black"
+                app:strokeWidth="2dp"
                 app:cardBackgroundColor="@android:color/white">
                 <ImageView
                     android:layout_width="35dp"
@@ -40,7 +42,7 @@
                     android:layout_gravity="center"
                     android:src="@drawable/coffee"
                     android:contentDescription="Breakfast icon" />
-            </androidx.cardview.widget.CardView>
+            </com.google.android.material.card.MaterialCardView>
 
             <TextView
                 android:layout_width="wrap_content"
@@ -63,11 +65,13 @@
             android:gravity="center"
             android:orientation="vertical">
 
-            <androidx.cardview.widget.CardView
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="60dp"
                 android:layout_height="60dp"
                 app:cardCornerRadius="30dp"
                 app:cardElevation="2dp"
+                app:strokeWidth="2dp"
+                app:strokeColor="@color/black"
                 app:cardBackgroundColor="@android:color/white">
                 <ImageView
                     android:layout_width="35dp"
@@ -75,7 +79,7 @@
                     android:layout_gravity="center"
                     android:src="@drawable/lunch"
                     android:contentDescription="Lunch icon" />
-            </androidx.cardview.widget.CardView>
+            </com.google.android.material.card.MaterialCardView>
 
             <TextView
                 android:layout_width="wrap_content"
@@ -98,10 +102,12 @@
             android:gravity="center"
             android:orientation="vertical">
 
-            <androidx.cardview.widget.CardView
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="60dp"
                 android:layout_height="60dp"
                 app:cardCornerRadius="30dp"
+                app:strokeColor="@color/black"
+                app:strokeWidth="2dp"
                 app:cardElevation="2dp"
                 app:cardBackgroundColor="@android:color/white">
                 <ImageView
@@ -110,7 +116,7 @@
                     android:layout_gravity="center"
                     android:src="@drawable/wine_bottle"
                     android:contentDescription="Dinner icon" />
-            </androidx.cardview.widget.CardView>
+            </com.google.android.material.card.MaterialCardView>
 
             <TextView
                 android:layout_width="wrap_content"
@@ -133,10 +139,12 @@
             android:gravity="center"
             android:orientation="vertical">
 
-            <androidx.cardview.widget.CardView
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="60dp"
                 android:layout_height="60dp"
                 app:cardCornerRadius="30dp"
+                app:strokeColor="@color/black"
+                app:strokeWidth="2dp"
                 app:cardElevation="2dp"
                 app:cardBackgroundColor="@android:color/white">
                 <ImageView
@@ -145,7 +153,7 @@
                     android:layout_gravity="center"
                     android:src="@drawable/other"
                     android:contentDescription="Others icon" />
-            </androidx.cardview.widget.CardView>
+            </com.google.android.material.card.MaterialCardView>
 
             <TextView
                 android:layout_width="wrap_content"

@@ -48,11 +48,13 @@
                 android:orientation="vertical"
                 android:padding="8dp">
 
-                <androidx.cardview.widget.CardView
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="60dp"
                     android:layout_height="60dp"
-                    app:cardBackgroundColor="@android:color/white"
+                    app:cardBackgroundColor="@color/dirty_white"
                     app:cardCornerRadius="30dp"
+                    app:strokeColor="@color/black"
+                    app:strokeWidth="2dp"
                     app:cardElevation="2dp">
 
                     <ImageView
@@ -61,7 +63,7 @@
                         android:layout_gravity="center"
                         android:contentDescription="Snack icon"
                         android:src="@drawable/snack" />
-                </androidx.cardview.widget.CardView>
+                </com.google.android.material.card.MaterialCardView>
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -85,11 +87,13 @@
                 android:orientation="vertical"
                 android:padding="8dp">
 
-                <androidx.cardview.widget.CardView
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="60dp"
                     android:layout_height="60dp"
-                    app:cardBackgroundColor="@android:color/white"
+                    app:cardBackgroundColor="@color/dirty_white"
                     app:cardCornerRadius="30dp"
+                    app:strokeColor="@color/black"
+                    app:strokeWidth="2dp"
                     app:cardElevation="2dp">
 
                     <ImageView
@@ -98,7 +102,7 @@
                         android:layout_gravity="center"
                         android:contentDescription="Fare icon"
                         android:src="@drawable/fare" />
-                </androidx.cardview.widget.CardView>
+                </com.google.android.material.card.MaterialCardView>
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -122,11 +126,13 @@
                 android:orientation="vertical"
                 android:padding="8dp">
 
-                <androidx.cardview.widget.CardView
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="60dp"
                     android:layout_height="60dp"
-                    app:cardBackgroundColor="@android:color/white"
+                    app:cardBackgroundColor="@color/dirty_white"
                     app:cardCornerRadius="30dp"
+                    app:strokeColor="@color/black"
+                    app:strokeWidth="2dp"
                     app:cardElevation="2dp">
 
                     <ImageView
@@ -135,7 +141,7 @@
                         android:layout_gravity="center"
                         android:contentDescription="Mobile Load icon"
                         android:src="@drawable/mobile_load" />
-                </androidx.cardview.widget.CardView>
+                </com.google.android.material.card.MaterialCardView>
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -168,10 +174,12 @@
                 android:orientation="vertical"
                 android:padding="8dp">
 
-                <androidx.cardview.widget.CardView
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="60dp"
                     android:layout_height="60dp"
-                    app:cardBackgroundColor="@android:color/white"
+                    app:cardBackgroundColor="@color/dirty_white"
+                    app:strokeWidth="2dp"
+                    app:strokeColor="@color/black"
                     app:cardCornerRadius="30dp"
                     app:cardElevation="2dp">
 
@@ -181,7 +189,7 @@
                         android:layout_gravity="center"
                         android:contentDescription="Printing icon"
                         android:src="@drawable/printing" />
-                </androidx.cardview.widget.CardView>
+                </com.google.android.material.card.MaterialCardView>
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -205,11 +213,13 @@
                 android:orientation="vertical"
                 android:padding="8dp">
 
-                <androidx.cardview.widget.CardView
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="60dp"
                     android:layout_height="60dp"
-                    app:cardBackgroundColor="@android:color/white"
+                    app:cardBackgroundColor="@color/dirty_white"
                     app:cardCornerRadius="30dp"
+                    app:strokeColor="@color/black"
+                    app:strokeWidth="2dp"
                     app:cardElevation="2dp">
 
                     <ImageView
@@ -218,7 +228,7 @@
                         android:layout_gravity="center"
                         android:contentDescription="School Supplies icon"
                         android:src="@drawable/school_supplies" />
-                </androidx.cardview.widget.CardView>
+                </com.google.android.material.card.MaterialCardView>
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -242,11 +252,13 @@
                 android:orientation="vertical"
                 android:padding="8dp">
 
-                <androidx.cardview.widget.CardView
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="60dp"
                     android:layout_height="60dp"
-                    app:cardBackgroundColor="@android:color/white"
+                    app:cardBackgroundColor="#FFF2E6"
                     app:cardCornerRadius="30dp"
+                    app:strokeColor="@color/black"
+                    app:strokeWidth="2dp"
                     app:cardElevation="2dp">
 
                     <ImageView
@@ -255,7 +267,7 @@
                         android:layout_gravity="center"
                         android:contentDescription="Laundry icon"
                         android:src="@drawable/laundry" />
-                </androidx.cardview.widget.CardView>
+                </com.google.android.material.card.MaterialCardView>
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -287,11 +299,13 @@
                 android:orientation="vertical"
                 android:padding="8dp">
 
-                <androidx.cardview.widget.CardView
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="60dp"
                     android:layout_height="60dp"
-                    app:cardBackgroundColor="@android:color/white"
+                    app:cardBackgroundColor="@color/dirty_white"
                     app:cardCornerRadius="30dp"
+                    app:strokeColor="@color/black"
+                    app:strokeWidth="2dp"
                     app:cardElevation="2dp">
 
                     <ImageView
@@ -300,7 +314,7 @@
                         android:layout_gravity="center"
                         android:contentDescription="Other icon"
                         android:src="@drawable/other" />
-                </androidx.cardview.widget.CardView>
+                </com.google.android.material.card.MaterialCardView>
 
                 <TextView
                     android:layout_width="wrap_content"
