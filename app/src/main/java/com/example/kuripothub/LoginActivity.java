@@ -18,7 +18,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private static final String TAG = "LoginActivity";
 
-    private EditText emailInput;
+    private EditText usernameInput;
     private EditText passwordInput;
     private CardView submitButton;
     private TextView signUpLink;
@@ -44,7 +44,7 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void initializeViews() {
-        emailInput = findViewById(R.id.emailInput);
+        usernameInput = findViewById(R.id.usernameInput);
         passwordInput = findViewById(R.id.passwordInput);
         submitButton = findViewById(R.id.submitButton);
         signUpLink = findViewById(R.id.signUpLink);
@@ -70,12 +70,12 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void handleLogin() {
-        String email = emailInput.getText().toString().trim();
+        String username = usernameInput.getText().toString().trim();
         String password = passwordInput.getText().toString().trim();
 
         // Basic validation
-        if (TextUtils.isEmpty(email)) {
-            emailInput.setError("Email is required");
+        if (TextUtils.isEmpty(username)) {
+            usernameInput.setError("Username is required");
             return;
         }
 
@@ -84,14 +84,36 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        if (!isValidEmail(email)) {
-            emailInput.setError("Please enter a valid email address");
-            return;
-        }
-
         // Disable submit button during login
         submitButton.setEnabled(false);
         
+        // First, find the user by username to get their email
+        firebaseManager.getUserByUsername(username)
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
+                        if (!task.getResult().isEmpty()) {
+                            // Username found, get the email
+                            String email = task.getResult().getDocuments().get(0).getString("email");
+                            if (email != null) {
+                                // Now login with email and password
+                                loginWithEmail(email, password);
+                            } else {
+                                submitButton.setEnabled(true);
+                                Toast.makeText(LoginActivity.this, "User data corrupted", Toast.LENGTH_SHORT).show();
+                            }
+                        } else {
+                            // Username not found
+                            submitButton.setEnabled(true);
+                            usernameInput.setError("Username not found");
+                        }
+                    } else {
+                        submitButton.setEnabled(true);
+                        Toast.makeText(LoginActivity.this, "Error checking username", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    private void loginWithEmail(String email, String password) {
         firebaseManager.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
                     // Re-enable submit button
@@ -114,20 +136,14 @@ public class LoginActivity extends AppCompatActivity {
                                 if (exceptionMessage.contains("password is invalid")) {
                                     errorMessage = "Invalid password";
                                 } else if (exceptionMessage.contains("no user record")) {
-                                    errorMessage = "No account found with this email";
-                                } else if (exceptionMessage.contains("email address is badly formatted")) {
-                                    errorMessage = "Invalid email format";
+                                    errorMessage = "Account not found";
                                 } else {
-                                    errorMessage = exceptionMessage;
+                                    errorMessage = "Login failed. Please check your credentials.";
                                 }
                             }
                         }
                         Toast.makeText(LoginActivity.this, errorMessage, Toast.LENGTH_LONG).show();
                     }
                 });
-    }
-
-    private boolean isValidEmail(String email) {
-        return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches();
     }
 }

@@ -9,7 +9,7 @@
     <LinearLayout
         android:id="@+id/topSection"
         android:layout_width="match_parent"
-        android:layout_height="180dp"
+        android:layout_height="100dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingHorizontal="32dp"
@@ -23,6 +23,7 @@
         <TextView
             android:id="@+id/appTitle"
             android:layout_width="210dp"
+            android:layout_marginTop="10dp"
             android:layout_marginStart="25dp"
             android:layout_height="wrap_content"
             android:fontFamily="@font/russo_one"
@@ -36,6 +37,7 @@
             android:id="@+id/greedyIcon"
             android:layout_width="60dp"
             android:layout_height="80dp"
+            android:layout_marginTop="10dp"
             android:src="@drawable/greedy"
             android:scaleType="centerInside" />
 
@@ -104,6 +106,35 @@
                 android:paddingVertical="12dp" />
 
             <!-- Email Underline -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:background="@android:color/black"
+                android:layout_marginTop="-5dp"
+                android:layout_marginBottom="24dp" />
+
+            <!-- Username Field -->
+            <TextView
+                android:id="@+id/usernameLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Username"
+                android:textSize="14sp"
+                android:textColor="@android:color/black"
+                android:fontFamily="@font/russo_one"
+                android:layout_marginBottom="8dp" />
+
+            <EditText
+                android:id="@+id/usernameInput"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@android:color/transparent"
+                android:textSize="18sp"
+                android:textColor="@android:color/black"
+                android:fontFamily="@font/russo_one"
+                android:paddingVertical="12dp" />
+
+            <!-- Username Underline -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="2dp"

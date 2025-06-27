@@ -44,9 +44,11 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     private BottomSheetDialog categoryBottomSheet;
     private View categoryBottomSheetView;
     private double currentBudget = 2000.00; // Default budget
+    private double originalDailyBudget = 2000.00; // Track the original budget for the day
     private TextView budgetAmountText;
     private FirebaseManager firebaseManager;
     private String currentUserId;
+    private com.google.firebase.firestore.ListenerRegistration expenseListener;
     
     // Track which meal categories have been used today
     private boolean breakfastUsed = false;
@@ -73,6 +75,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         
         // Initialize budget amount text view
         budgetAmountText = findViewById(R.id.budgetAmount);
+        
+        // Initialize username text view
+        TextView usernameText = findViewById(R.id.usernameText);
         
         // Load user data from Firebase
         loadUserData();
@@ -224,17 +229,17 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             // Parse the amount and update the budget
             double expenseAmount = Double.parseDouble(amount.replaceAll("[^\\d.]", ""));
             
-            // Save expense to Firebase
+            // Save expense to Firebase - the real-time listener will handle UI updates
             saveExpenseToFirebase(category, expenseAmount);
             
             // Decrease the budget
             updateBudget(expenseAmount);
             
-            // Add the transaction to the transactions container
-            addTransactionToView(category, amount);
+            // Don't add to UI manually - the real-time listener will handle this
+            // addTransactionToView(category, amount); // REMOVED
             
-            // Mark the category as used if it's a meal type
-            markCategoryAsUsed(category);
+            // Don't mark category as used manually - the real-time listener will handle this
+            // markCategoryAsUsed(category); // REMOVED
             
             Toast.makeText(this, category + " expense added: P" + String.format("%.2f", expenseAmount), Toast.LENGTH_SHORT).show();
         } catch (NumberFormatException e) {
@@ -727,8 +732,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 try {
                     double newBudget = Double.parseDouble(newBudgetText.replaceAll("[^\\d.]", ""));
                     if (newBudget >= 0) {
-                        // Update the budget
+                        // Update both current and original budget
                         currentBudget = newBudget;
+                        originalDailyBudget = newBudget;
                         updateBudgetDisplay();
                         
                         // Update budget in Firebase
@@ -758,7 +764,17 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         User user = documentSnapshot.toObject(User.class);
                         if (user != null) {
                             currentBudget = user.getBudget();
+                            originalDailyBudget = user.getBudget(); // Store original budget
                             updateBudgetDisplay();
+                            
+                            // Update username display
+                            TextView usernameText = findViewById(R.id.usernameText);
+                            if (user.getUsername() != null && !user.getUsername().isEmpty()) {
+                                usernameText.setText(user.getUsername());
+                            } else {
+                                usernameText.setText("User");
+                            }
+                            
                             Log.d(TAG, "User budget loaded: " + currentBudget);
                         }
                     } else {
@@ -766,8 +782,8 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         updateBudgetDisplay();
                     }
                     
-                    // After loading user data, load today's expenses
-                    loadTodaysExpenses();
+                    // After loading user data, set up real-time expense monitoring
+                    setupExpenseListener();
                     
                     // Debug: Check all user expenses
                     debugUserExpenses();
@@ -776,12 +792,145 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     Log.w(TAG, "Error loading user data", e);
                     updateBudgetDisplay();
                     
-                    // Even if user data fails, try to load expenses
-                    loadTodaysExpenses();
+                    // Even if user data fails, try to set up expense monitoring
+                    setupExpenseListener();
                     
                     // Debug: Check all user expenses
                     debugUserExpenses();
                 });
+    }
+
+    private void setupExpenseListener() {
+        if (currentUserId == null) {
+            Log.w(TAG, "Cannot setup expense listener: currentUserId is null");
+            return;
+        }
+
+        // Remove any existing listener
+        if (expenseListener != null) {
+            expenseListener.remove();
+        }
+
+        // Get today's date
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        String today = dateFormat.format(new Date());
+
+        Log.d(TAG, "Setting up real-time expense listener for user: " + currentUserId + ", date: " + today);
+
+        // Set up real-time listener for today's expenses
+        expenseListener = firebaseManager.addExpenseListener(currentUserId, today, (querySnapshot, error) -> {
+            if (error != null) {
+                Log.w(TAG, "Error listening to expenses", error);
+                return;
+            }
+
+            if (querySnapshot != null) {
+                Log.d(TAG, "Expense listener triggered with " + querySnapshot.size() + " expenses");
+
+                // Clear existing transaction views
+                LinearLayout transactionsContainer = findViewById(R.id.transactionsContainer);
+                clearDynamicTransactions(transactionsContainer);
+
+                // Reset meal category usage tracking
+                breakfastUsed = false;
+                lunchUsed = false;
+                dinnerUsed = false;
+
+                // Add each expense to the UI
+                List<Expense> todayExpenses = new ArrayList<>();
+                for (DocumentSnapshot document : querySnapshot.getDocuments()) {
+                    Expense expense = document.toObject(Expense.class);
+                    if (expense != null) {
+                        expense.setId(document.getId()); // Set the document ID
+                        todayExpenses.add(expense);
+                        
+                        // Track meal categories
+                        String category = expense.getCategory();
+                        if ("breakfast".equals(category)) breakfastUsed = true;
+                        else if ("lunch".equals(category)) lunchUsed = true;
+                        else if ("dinner".equals(category)) dinnerUsed = true;
+                        
+                        Log.d(TAG, "Real-time expense: " + expense.getCategory() + " - P" + expense.getAmount());
+                    }
+                }
+
+                // Sort expenses by timestamp (newest first)
+                todayExpenses.sort((e1, e2) -> Long.compare(e2.getTimestamp(), e1.getTimestamp()));
+
+                // Add expenses to UI
+                for (Expense expense : todayExpenses) {
+                    addTransactionToView(expense.getCategory(), String.format("%.2f", expense.getAmount()), expense.getId());
+                }
+
+                // Update total spent and budget display
+                updateTotalSpentAndBudget(todayExpenses);
+                
+                // Update category availability in the bottom sheet
+                updateCategoryAvailability();
+
+                Log.d(TAG, "UI updated with " + todayExpenses.size() + " expenses from real-time listener");
+            }
+        });
+    }
+
+    private void updateTotalSpentAndBudget(List<Expense> expenses) {
+        // Calculate total spent today
+        double totalSpent = 0;
+        for (Expense expense : expenses) {
+            totalSpent += expense.getAmount();
+        }
+        
+        Log.d(TAG, "Total spent today: P" + String.format("%.2f", totalSpent));
+        
+        // Recalculate current budget based on original daily budget minus total spent
+        double newCurrentBudget = originalDailyBudget - totalSpent;
+        
+        // Update current budget if it changed
+        if (Math.abs(currentBudget - newCurrentBudget) > 0.01) {
+            Log.d(TAG, "Budget recalculated: Original=" + originalDailyBudget + 
+                  ", TotalSpent=" + totalSpent + 
+                  ", NewCurrent=" + newCurrentBudget + 
+                  ", OldCurrent=" + currentBudget);
+            
+            currentBudget = newCurrentBudget;
+            
+            // Update budget in Firebase
+            updateBudgetInFirebase();
+        }
+        
+        // Update budget display
+        updateBudgetDisplay();
+    }
+    
+    private double getCurrentlyDisplayedTotalSpent() {
+        // This method is no longer needed with the new approach
+        // but keeping it for potential future use
+        LinearLayout container = findViewById(R.id.transactionsContainer);
+        double total = 0;
+        
+        for (int i = 0; i < container.getChildCount(); i++) {
+            View child = container.getChildAt(i);
+            TextView transactionAmount = child.findViewById(R.id.transactionAmount);
+            if (transactionAmount != null) {
+                String amountText = transactionAmount.getText().toString();
+                // Remove "-P" prefix and parse
+                try {
+                    String cleanAmount = amountText.replace("-P", "").trim();
+                    total += Double.parseDouble(cleanAmount);
+                } catch (NumberFormatException e) {
+                    Log.w(TAG, "Error parsing transaction amount: " + amountText);
+                }
+            }
+        }
+        
+        return total;
+    }
+
+    private void updateCategoryAvailability() {
+        // Update the category states in the bottom sheet based on current usage
+        if (categoryBottomSheetView != null) {
+            updateCategoryStates(categoryBottomSheetView);
+        }
     }
     
     private void saveExpenseToFirebase(String category, double amount) {
@@ -803,14 +952,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 .addOnSuccessListener(documentReference -> {
                     String expenseId = documentReference.getId();
                     Log.d(TAG, "Expense saved successfully to Firestore with ID: " + expenseId);
-                    
-                    // Find the most recently added transaction view and set its tag to the expense ID
-                    LinearLayout container = findViewById(R.id.transactionsContainer);
-                    if (container.getChildCount() > 0) {
-                        View mostRecentTransaction = container.getChildAt(0); // Most recent is at index 0
-                        mostRecentTransaction.setTag(expenseId);
-                        Log.d(TAG, "Set expense ID tag on transaction view: " + expenseId);
-                    }
+                    // Real-time listener will handle UI updates, so no manual UI manipulation needed
                 })
                 .addOnFailureListener(e -> {
                     Log.w(TAG, "Error saving expense to Firestore", e);
@@ -977,12 +1119,12 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Refresh today's expenses when the activity resumes
+        // Restart real-time listener when the activity resumes
         if (currentUserId != null) {
-            Log.d(TAG, "Activity resumed, refreshing today's expenses");
+            Log.d(TAG, "Activity resumed, setting up expense listener");
             // Reset category states first, they will be set correctly after loading expenses
             resetDailyCategoryStates();
-            loadTodaysExpenses();
+            setupExpenseListener();
         }
     }
     
@@ -1120,5 +1262,29 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         
         Log.d(TAG, "Category states after check - Breakfast: " + breakfastUsed + 
               ", Lunch: " + lunchUsed + ", Dinner: " + dinnerUsed);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        
+        // Remove listener when activity is paused to save resources
+        if (expenseListener != null) {
+            expenseListener.remove();
+            expenseListener = null;
+            Log.d(TAG, "Expense listener paused");
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        
+        // Clean up the expense listener
+        if (expenseListener != null) {
+            expenseListener.remove();
+            expenseListener = null;
+            Log.d(TAG, "Expense listener removed");
+        }
     }
 }

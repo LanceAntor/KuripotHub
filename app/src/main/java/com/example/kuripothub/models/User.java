@@ -4,6 +4,7 @@ public class User {
     private String uid;
     private String email;
     private String name;
+    private String username;
     private double budget;
     private long createdAt;
 
@@ -11,10 +12,11 @@ public class User {
         // Default constructor required for calls to DataSnapshot.getValue(User.class)
     }
 
-    public User(String uid, String email, String name, double budget) {
+    public User(String uid, String email, String name, String username, double budget) {
         this.uid = uid;
         this.email = email;
         this.name = name;
+        this.username = username;
         this.budget = budget;
         this.createdAt = System.currentTimeMillis();
     }
@@ -42,6 +44,14 @@ public class User {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public double getBudget() {

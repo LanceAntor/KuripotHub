@@ -84,6 +84,45 @@ public class FirebaseManager {
                 .document(uid)
                 .get();
     }
+
+    public Task<QuerySnapshot> checkUsernameAvailability(String username) {
+        return firestore.collection(USERS_COLLECTION)
+                .whereEqualTo("username", username)
+                .get();
+    }
+
+    public Task<QuerySnapshot> getUserByUsername(String username) {
+        return firestore.collection(USERS_COLLECTION)
+                .whereEqualTo("username", username)
+                .get();
+    }
+
+    public Task<QuerySnapshot> getUserByEmail(String email) {
+        return firestore.collection(USERS_COLLECTION)
+                .whereEqualTo("email", email)
+                .get();
+    }
+
+    // Method to delete user and all associated expenses
+    public Task<Void> deleteUserAndExpenses(String userId) {
+        // First delete all expenses for this user
+        return getUserExpenses(userId)
+                .continueWithTask(task -> {
+                    if (task.isSuccessful()) {
+                        // Delete all user's expenses
+                        for (DocumentSnapshot expense : task.getResult().getDocuments()) {
+                            expense.getReference().delete();
+                        }
+                        
+                        // Delete the user profile
+                        return firestore.collection(USERS_COLLECTION)
+                                .document(userId)
+                                .delete();
+                    } else {
+                        throw task.getException();
+                    }
+                });
+    }
     
     public Task<Void> updateUserBudget(String uid, double budget) {
         Map<String, Object> updates = new HashMap<>();
@@ -140,5 +179,54 @@ public class FirebaseManager {
         return firestore.collection(EXPENSES_COLLECTION)
                 .document(expenseId)
                 .set(expense);
+    }
+
+    public Task<Void> deleteCurrentUser() {
+        FirebaseUser user = getCurrentUser();
+        if (user != null) {
+            // Delete from Firestore first
+            Task<Void> firestoreDelete = firestore.collection(USERS_COLLECTION)
+                    .document(user.getUid())
+                    .delete();
+            
+            // Then delete from Authentication
+            return firestoreDelete.continueWithTask(task -> user.delete());
+        }
+        return null;
+    }
+
+    public Task<Void> deleteUserProfile(String uid) {
+        return firestore.collection(USERS_COLLECTION)
+                .document(uid)
+                .delete();
+    }
+
+    // Real-time listener for user expenses by date
+    public com.google.firebase.firestore.ListenerRegistration addExpenseListener(String userId, String date, 
+            com.google.firebase.firestore.EventListener<QuerySnapshot> listener) {
+        return firestore.collection(EXPENSES_COLLECTION)
+                .whereEqualTo("userId", userId)
+                .whereEqualTo("date", date)
+                .addSnapshotListener(listener);
+    }
+
+    // Real-time listener for all user expenses
+    public com.google.firebase.firestore.ListenerRegistration addAllUserExpensesListener(String userId,
+            com.google.firebase.firestore.EventListener<QuerySnapshot> listener) {
+        return firestore.collection(EXPENSES_COLLECTION)
+                .whereEqualTo("userId", userId)
+                .addSnapshotListener(listener);
+    }
+
+    // Debug method to count user expenses
+    public Task<Integer> getUserExpenseCount(String userId) {
+        return getUserExpenses(userId)
+                .continueWith(task -> {
+                    if (task.isSuccessful()) {
+                        return task.getResult().size();
+                    } else {
+                        return 0;
+                    }
+                });
     }
 }
