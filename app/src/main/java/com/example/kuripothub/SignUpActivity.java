@@ -133,7 +133,7 @@ public class SignUpActivity extends AppCompatActivity {
                                         if (profileTask.isSuccessful()) {
                                             Toast.makeText(SignUpActivity.this, 
                                                 "Registration successful!", Toast.LENGTH_SHORT).show();
-                                            startActivity(new Intent(SignUpActivity.this, ExpenseTrackingActivity.class));
+                                            startActivity(new Intent(SignUpActivity.this, PrefaceActivity.class));
                                             finish();
                                         } else {
                                             Log.w(TAG, "Failed to create user profile", profileTask.getException());

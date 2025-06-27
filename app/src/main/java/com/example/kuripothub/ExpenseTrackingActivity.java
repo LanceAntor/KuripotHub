@@ -116,7 +116,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         settingsIcon.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                openPersonaActivity();
+                showLogoutDialog();
             }
         });
         
