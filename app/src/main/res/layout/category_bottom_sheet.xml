@@ -35,12 +35,12 @@
                 app:cardElevation="2dp"
                 app:strokeColor="@color/black"
                 app:strokeWidth="2dp"
-                app:cardBackgroundColor="@android:color/white">
+                app:cardBackgroundColor="@color/dirty_white">
                 <ImageView
                     android:layout_width="35dp"
                     android:layout_height="35dp"
                     android:layout_gravity="center"
-                    android:src="@drawable/coffee"
+                    android:src="@drawable/egg"
                     android:contentDescription="Breakfast icon" />
             </com.google.android.material.card.MaterialCardView>
 
@@ -72,7 +72,7 @@
                 app:cardElevation="2dp"
                 app:strokeWidth="2dp"
                 app:strokeColor="@color/black"
-                app:cardBackgroundColor="@android:color/white">
+                app:cardBackgroundColor="@color/dirty_white">
                 <ImageView
                     android:layout_width="35dp"
                     android:layout_height="35dp"
@@ -109,7 +109,7 @@
                 app:strokeColor="@color/black"
                 app:strokeWidth="2dp"
                 app:cardElevation="2dp"
-                app:cardBackgroundColor="@android:color/white">
+                app:cardBackgroundColor="@color/dirty_white">
                 <ImageView
                     android:layout_width="35dp"
                     android:layout_height="35dp"
@@ -146,7 +146,7 @@
                 app:strokeColor="@color/black"
                 app:strokeWidth="2dp"
                 app:cardElevation="2dp"
-                app:cardBackgroundColor="@android:color/white">
+                app:cardBackgroundColor="@color/dirty_white">
                 <ImageView
                     android:layout_width="35dp"
                     android:layout_height="35dp"

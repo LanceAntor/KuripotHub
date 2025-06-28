@@ -306,7 +306,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     private int getCategoryIconResource(String category) {
         switch (category.toLowerCase()) {
             case "breakfast":
-                return R.drawable.coffee;
+                return R.drawable.egg;
             case "lunch":
                 return R.drawable.lunch;
             case "dinner":
@@ -824,12 +824,19 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
 
         // Set up UI elements
         TextView categoryTitle = budgetDialog.findViewById(R.id.categoryTitle);
+        ImageView categoryIcon = budgetDialog.findViewById(R.id.categoryIcon);
         EditText amountInput = budgetDialog.findViewById(R.id.amountInput);
         CardView cancelButton = budgetDialog.findViewById(R.id.cancelButton);
         CardView confirmButton = budgetDialog.findViewById(R.id.confirmButton);
 
-        // Set dialog title and pre-fill with current budget
-        categoryTitle.setText("BUDGET");
+        // Set dialog title and show budget icon
+        categoryTitle.setText("EDIT BUDGET");
+        if (categoryIcon != null) {
+            categoryIcon.setImageResource(R.drawable.budget); // Show budget icon
+            categoryIcon.setVisibility(View.VISIBLE);
+        }
+        
+        // Pre-fill with current budget
         amountInput.setText(String.format("%.2f", currentBudget));
         amountInput.setHint("Enter new budget amount");
 
