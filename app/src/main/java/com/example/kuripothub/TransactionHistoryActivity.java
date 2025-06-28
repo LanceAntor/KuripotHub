@@ -6,23 +6,36 @@ import android.view.View;
 import android.view.Window;
 import android.widget.TextView;
 import android.widget.GridLayout;
+import android.widget.LinearLayout;
 import android.widget.Button;
 import android.view.WindowManager;
 import android.graphics.Color;
 import android.widget.ImageView;
+import android.util.Log;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.example.kuripothub.utils.FirebaseManager;
+import com.example.kuripothub.models.Expense;
 import java.util.Calendar;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
+import java.util.List;
+import java.util.ArrayList;
 
 public class TransactionHistoryActivity extends AppCompatActivity {
 
+    private static final String TAG = "TransactionHistory";
+    
     private TextView selectMonthButton;
     private GridLayout calendarGrid;
     private Calendar currentCalendar;
     private SimpleDateFormat monthYearFormat;
     private SimpleDateFormat monthFormat;
+    private SimpleDateFormat dateFormat;
+    private FirebaseManager firebaseManager;
+    private String currentUserId;
+    
     private String[] monthNames = {
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
@@ -32,6 +45,12 @@ public class TransactionHistoryActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_transaction_history);
+
+        // Initialize Firebase
+        firebaseManager = FirebaseManager.getInstance();
+        if (firebaseManager.getCurrentUser() != null) {
+            currentUserId = firebaseManager.getCurrentUser().getUid();
+        }
 
         initializeViews();
         setupCalendar();
@@ -45,6 +64,7 @@ public class TransactionHistoryActivity extends AppCompatActivity {
         currentCalendar = Calendar.getInstance();
         monthYearFormat = new SimpleDateFormat("MMMM yyyy", Locale.getDefault());
         monthFormat = new SimpleDateFormat("MMMM", Locale.getDefault());
+        dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()); // Format for Firebase queries
     }
 
     private void setupCalendar() {
@@ -140,11 +160,11 @@ public class TransactionHistoryActivity extends AppCompatActivity {
             // Fallback if font not available
         }
         
-        // Add click listener for future transaction details
+        // Add click listener to show day details
         cardView.setOnClickListener(v -> {
-            // TODO: Show transactions for this day
-            String selectedDate = monthFormat.format(currentCalendar.getTime()) + " " + day + ", " + currentCalendar.get(Calendar.YEAR);
-            android.widget.Toast.makeText(this, "Transactions for " + selectedDate, android.widget.Toast.LENGTH_SHORT).show();
+            Calendar selectedDate = (Calendar) currentCalendar.clone();
+            selectedDate.set(Calendar.DAY_OF_MONTH, day);
+            showDayDetailsDialog(selectedDate);
         });
         
         cardView.addView(dayText);
@@ -203,5 +223,135 @@ public class TransactionHistoryActivity extends AppCompatActivity {
     private void setupBackButton() {
         CardView backButton = findViewById(R.id.backButton);
         backButton.setOnClickListener(v -> finish());
+    }
+
+    /**
+     * Show dialog with expenses for the selected day
+     */
+    private void showDayDetailsDialog(Calendar selectedDate) {
+        if (currentUserId == null) {
+            android.widget.Toast.makeText(this, "User not logged in", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final Dialog dayDialog = new Dialog(this);
+        dayDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dayDialog.setContentView(R.layout.day_details_dialog);
+        
+        // Make dialog background transparent
+        if (dayDialog.getWindow() != null) {
+            dayDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            
+            // Set the dialog width to match parent with margins
+            WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
+            layoutParams.copyFrom(dayDialog.getWindow().getAttributes());
+            layoutParams.width = WindowManager.LayoutParams.MATCH_PARENT;
+            layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT;
+            dayDialog.getWindow().setAttributes(layoutParams);
+        }
+
+        // Format date for display
+        SimpleDateFormat displayFormat = new SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault());
+        String dateString = displayFormat.format(selectedDate.getTime());
+        
+        // Set date header
+        TextView dateHeader = dayDialog.findViewById(R.id.dateHeader);
+        dateHeader.setText(dateString);
+        
+        // Get references to UI elements
+        LinearLayout expensesContainer = dayDialog.findViewById(R.id.expensesContainer);
+        TextView totalAmount = dayDialog.findViewById(R.id.totalAmount);
+        
+        // Format date for Firebase query
+        String queryDate = dateFormat.format(selectedDate.getTime());
+        
+        // Load expenses for this date
+        loadExpensesForDate(queryDate, expensesContainer, totalAmount, dayDialog);
+    }
+    
+    /**
+     * Load expenses from Firebase for a specific date
+     */
+    private void loadExpensesForDate(String date, LinearLayout container, TextView totalView, Dialog dialog) {
+        Log.d(TAG, "Loading expenses for date: " + date + ", user: " + currentUserId);
+        
+        firebaseManager.getUserExpensesByDateSimple(currentUserId, date)
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    Log.d(TAG, "Query returned " + queryDocumentSnapshots.size() + " expenses");
+                    
+                    if (queryDocumentSnapshots.isEmpty()) {
+                        // No expenses for this date
+                        showNoExpensesMessage(container, totalView, dialog);
+                        return;
+                    }
+                    
+                    List<Expense> expenses = new ArrayList<>();
+                    double total = 0.0;
+                    
+                    // Process expenses from Firebase
+                    for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
+                        Expense expense = document.toObject(Expense.class);
+                        if (expense != null) {
+                            expense.setId(document.getId());
+                            expenses.add(expense);
+                            total += expense.getAmount();
+                            Log.d(TAG, "Expense: " + expense.getCategory() + " - P" + expense.getAmount());
+                        }
+                    }
+                    
+                    // Populate the UI
+                    populateExpensesList(container, expenses);
+                    totalView.setText(String.format("%.0f", total));
+                    
+                    // Show the dialog
+                    dialog.show();
+                })
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "Error loading expenses for date", e);
+                    android.widget.Toast.makeText(this, "Error loading expenses", android.widget.Toast.LENGTH_SHORT).show();
+                });
+    }
+    
+    /**
+     * Show message when no expenses found for the selected date
+     */
+    private void showNoExpensesMessage(LinearLayout container, TextView totalView, Dialog dialog) {
+        container.removeAllViews();
+        
+        TextView noExpensesText = new TextView(this);
+        noExpensesText.setText("No expenses recorded for this day");
+        noExpensesText.setTextColor(Color.BLACK);
+        noExpensesText.setGravity(android.view.Gravity.CENTER);
+        noExpensesText.setPadding(0, 30, 0, 30);
+        
+        try {
+            noExpensesText.setTypeface(getResources().getFont(R.font.russo_one));
+        } catch (Exception e) {
+            // Fallback if font not available
+        }
+        
+        container.addView(noExpensesText);
+        totalView.setText("0");
+        
+        dialog.show();
+    }
+    
+    /**
+     * Populate the expenses list in the dialog
+     */
+    private void populateExpensesList(LinearLayout container, List<Expense> expenses) {
+        container.removeAllViews();
+        
+        for (Expense expense : expenses) {
+            View expenseItem = getLayoutInflater().inflate(R.layout.expense_item_simple, container, false);
+            
+            TextView categoryText = expenseItem.findViewById(R.id.expenseCategory);
+            TextView amountText = expenseItem.findViewById(R.id.expenseAmount);
+            
+            categoryText.setText(expense.getCategory().toUpperCase());
+            amountText.setText("P" + String.format("%.0f", expense.getAmount()));
+            
+            container.addView(expenseItem);
+        }
     }
 }
