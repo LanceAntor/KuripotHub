@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
+import android.view.Gravity;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -116,6 +117,16 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             }
         });
         
+        // Set click listener for Analytics button
+        TextView analyticsText = findViewById(R.id.analyticsText);
+        analyticsText.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(ExpenseTrackingActivity.this, ExpenseSummaryActivity.class);
+                startActivity(intent);
+            }
+        });
+        
         // Set click listener for Budget Edit button
         View editContainer = findViewById(R.id.editContainer);
         editContainer.setOnClickListener(new View.OnClickListener() {
@@ -125,21 +136,31 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             }
         });
         
-        // Set click listener for Settings icon
-        ImageView settingsIcon = findViewById(R.id.settingsIcon);
-        settingsIcon.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                showLogoutDialog();
-            }
-        });
-        
         // Set click listener for Grid/Menu icon
         ImageView gridIcon = findViewById(R.id.gridIcon);
         gridIcon.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 openPersonaActivity();
+            }
+        });
+        
+        // Set click listener for Chart icon
+        ImageView chartIcon = findViewById(R.id.chartIcon);
+        chartIcon.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(ExpenseTrackingActivity.this, ExpenseSummaryActivity.class);
+                startActivity(intent);
+            }
+        });
+        
+        // Set click listener for Profile icon
+        com.google.android.material.imageview.ShapeableImageView profileIcon = findViewById(R.id.profileIcon);
+        profileIcon.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showProfileModal();
             }
         });
     }
@@ -992,6 +1013,67 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     Log.w(TAG, "Error updating budget", e);
                 });
+    }
+
+    private void showProfileModal() {
+        final Dialog profileDialog = new Dialog(this);
+        profileDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        profileDialog.setContentView(R.layout.profile_modal);
+        
+        // Make dialog background transparent, remove dimming, and add animation
+        if (profileDialog.getWindow() != null) {
+            profileDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            profileDialog.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            profileDialog.getWindow().getAttributes().windowAnimations = R.style.DialogAnimation;
+            
+            // Set gravity to top-left to prevent centering
+            WindowManager.LayoutParams params = profileDialog.getWindow().getAttributes();
+            params.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
+            params.x = 0; // Distance from left edge
+            params.y = 70; // Distance from top edge
+            profileDialog.getWindow().setAttributes(params);
+        }
+
+        // Get username and set it
+        TextView usernameText = profileDialog.findViewById(R.id.usernameText);
+        
+        // Load user data from Firebase
+        firebaseManager.getUserProfile(currentUserId)
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        User user = documentSnapshot.toObject(User.class);
+                        if (user != null && user.getUsername() != null && !user.getUsername().isEmpty()) {
+                            usernameText.setText(user.getUsername());
+                        } else {
+                            usernameText.setText("User");
+                        }
+                    } else {
+                        usernameText.setText("Guest");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    usernameText.setText("Guest");
+                });
+
+        // Set up button listeners
+        CardView editProfileButton = profileDialog.findViewById(R.id.editProfileButton);
+        CardView logoutButton = profileDialog.findViewById(R.id.logoutButton);
+
+        editProfileButton.setOnClickListener(v -> {
+
+            profileDialog.dismiss();
+            Toast.makeText(this, "Edit Profile - Coming Soon!", Toast.LENGTH_SHORT).show();
+        });
+        
+        logoutButton.setOnClickListener(v -> {
+            profileDialog.dismiss();
+            showLogoutDialog();
+        });
+
+        // Dismiss when clicking outside
+        profileDialog.setOnCancelListener(dialog -> profileDialog.dismiss());
+
+        profileDialog.show();
     }
 
     private void showLogoutDialog() {
