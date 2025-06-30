@@ -87,16 +87,18 @@
                     <!-- Underline -->
                     <View
                         android:layout_width="match_parent"
-                        android:layout_height="2dp"
+                        android:layout_height="5dp"
                         android:background="@android:color/black"
                         android:layout_marginBottom="16dp" />
 
                     <!-- Single Chart Section -->
-                    <androidx.cardview.widget.CardView
+                    <com.google.android.material.card.MaterialCardView
                         android:layout_width="match_parent"
                         android:layout_height="250dp"
                         android:layout_marginBottom="16dp"
                         app:cardBackgroundColor="#FFDD00"
+                        app:strokeColor="@color/black"
+                        app:strokeWidth="2dp"
                         app:cardCornerRadius="15dp"
                         app:cardElevation="2dp">
 
@@ -125,7 +127,7 @@
                                 android:layout_weight="1" />
 
                         </LinearLayout>
-                    </androidx.cardview.widget.CardView>
+                    </com.google.android.material.card.MaterialCardView>
 
                     <!-- Summary Cards Row -->
                     <LinearLayout
@@ -135,12 +137,14 @@
                         android:weightSum="3">
 
                         <!-- Budget Card -->
-                        <androidx.cardview.widget.CardView
+                        <com.google.android.material.card.MaterialCardView
                             android:layout_width="0dp"
                             android:layout_height="80dp"
                             android:layout_weight="1"
                             android:layout_marginEnd="8dp"
                             app:cardBackgroundColor="#F5DEB3"
+                            app:strokeWidth="2dp"
+                            app:strokeColor="@color/black"
                             app:cardCornerRadius="12dp"
                             app:cardElevation="2dp">
 
@@ -148,6 +152,7 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
                                 android:orientation="vertical"
+                                android:background="@color/dirty_white"
                                 android:gravity="center"
                                 android:padding="8dp">
 
@@ -170,21 +175,24 @@
                                     android:textSize="20sp"
                                     android:textStyle="bold" />
                             </LinearLayout>
-                        </androidx.cardview.widget.CardView>
+                        </com.google.android.material.card.MaterialCardView>
 
                         <!-- Expense Card -->
-                        <androidx.cardview.widget.CardView
+                        <com.google.android.material.card.MaterialCardView
                             android:layout_width="0dp"
                             android:layout_height="80dp"
                             android:layout_weight="1"
                             android:layout_marginHorizontal="4dp"
                             app:cardBackgroundColor="#F5DEB3"
+                            app:strokeColor="@color/black"
+                            app:strokeWidth="2dp"
                             app:cardCornerRadius="12dp"
                             app:cardElevation="2dp">
 
                             <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
+                                android:background="@color/dirty_white"
                                 android:orientation="vertical"
                                 android:gravity="center"
                                 android:padding="8dp">
@@ -208,14 +216,16 @@
                                     android:textSize="20sp"
                                     android:textStyle="bold" />
                             </LinearLayout>
-                        </androidx.cardview.widget.CardView>
+                        </com.google.android.material.card.MaterialCardView>
 
                         <!-- Saved Card -->
-                        <androidx.cardview.widget.CardView
+                        <com.google.android.material.card.MaterialCardView
                             android:layout_width="0dp"
                             android:layout_height="80dp"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
+                            app:strokeColor="@color/black"
+                            app:strokeWidth="2dp"
                             app:cardBackgroundColor="#F5DEB3"
                             app:cardCornerRadius="12dp"
                             app:cardElevation="2dp">
@@ -223,6 +233,7 @@
                             <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
+                                android:background="@color/dirty_white"
                                 android:orientation="vertical"
                                 android:gravity="center"
                                 android:padding="8dp">
@@ -246,7 +257,7 @@
                                     android:textSize="20sp"
                                     android:textStyle="bold" />
                             </LinearLayout>
-                        </androidx.cardview.widget.CardView>
+                        </com.google.android.material.card.MaterialCardView>
 
                     </LinearLayout>
 
@@ -282,14 +293,16 @@
                     <!-- Underline -->
                     <View
                         android:layout_width="match_parent"
-                        android:layout_height="2dp"
+                        android:layout_height="5dp"
                         android:background="@android:color/black"
                         android:layout_marginBottom="16dp" />
 
                     <!-- Daily Spending Container -->
-                    <androidx.cardview.widget.CardView
+                    <com.google.android.material.card.MaterialCardView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        app:strokeColor="@color/black"
+                        app:strokeWidth="2dp"
                         app:cardBackgroundColor="#FFDD00"
                         app:cardCornerRadius="15dp"
                         app:cardElevation="2dp">
@@ -301,244 +314,307 @@
                             android:padding="16dp">
 
                             <!-- Day 1 -->
-                            <LinearLayout
+                            <com.google.android.material.card.MaterialCardView
                                 android:layout_width="match_parent"
                                 android:layout_height="48dp"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="4dp"
-                                android:gravity="center_vertical"
-                                android:paddingHorizontal="12dp"
-                                android:paddingVertical="8dp">
+                                android:layout_marginBottom="8dp"
+                                app:strokeColor="@color/black"
+                                app:strokeWidth="2dp"
+                                app:cardBackgroundColor="@color/dirty_white"
+                                app:cardCornerRadius="15dp"
+                                app:cardElevation="2dp">
 
-                                <TextView
-                                    android:id="@+id/day1Label"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Sat"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="start|center_vertical" />
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical"
+                                    android:paddingHorizontal="12dp">
 
-                                <TextView
-                                    android:id="@+id/day1Total"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Total: ₱250"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="end|center_vertical"
-                                    android:minWidth="120dp"
-                                    android:textAlignment="textEnd" />
-                            </LinearLayout>
+                                    <TextView
+                                        android:id="@+id/day1Label"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Sat"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="start|center_vertical" />
+
+                                    <TextView
+                                        android:id="@+id/day1Total"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Total: ₱250"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="end|center_vertical"
+                                        android:minWidth="120dp"
+                                        android:textAlignment="textEnd" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
 
                             <!-- Day 2 -->
-                            <LinearLayout
+                            <com.google.android.material.card.MaterialCardView
                                 android:layout_width="match_parent"
                                 android:layout_height="48dp"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="4dp"
-                                android:gravity="center_vertical"
-                                android:paddingHorizontal="12dp"
-                                android:paddingVertical="8dp">
+                                android:layout_marginBottom="8dp"
+                                app:strokeColor="@color/black"
+                                app:strokeWidth="2dp"
+                                app:cardBackgroundColor="@color/dirty_white"
+                                app:cardCornerRadius="15dp"
+                                app:cardElevation="2dp">
 
-                                <TextView
-                                    android:id="@+id/day2Label"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Sun"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="start|center_vertical" />
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical"
+                                    android:paddingHorizontal="12dp">
 
-                                <TextView
-                                    android:id="@+id/day2Total"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Total: ₱250"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="end|center_vertical"
-                                    android:minWidth="120dp"
-                                    android:textAlignment="textEnd" />
-                            </LinearLayout>
+                                    <TextView
+                                        android:id="@+id/day2Label"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Sun"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="start|center_vertical" />
+
+                                    <TextView
+                                        android:id="@+id/day2Total"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Total: ₱250"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="end|center_vertical"
+                                        android:minWidth="120dp"
+                                        android:textAlignment="textEnd" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
 
                             <!-- Day 3 -->
-                            <LinearLayout
+                            <com.google.android.material.card.MaterialCardView
                                 android:layout_width="match_parent"
                                 android:layout_height="48dp"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="4dp"
-                                android:gravity="center_vertical"
-                                android:paddingHorizontal="12dp"
-                                android:paddingVertical="8dp">
+                                android:layout_marginBottom="8dp"
+                                app:strokeColor="@color/black"
+                                app:strokeWidth="2dp"
+                                app:cardBackgroundColor="@color/dirty_white"
+                                app:cardCornerRadius="15dp"
+                                app:cardElevation="2dp">
 
-                                <TextView
-                                    android:id="@+id/day3Label"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Mon"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="start|center_vertical" />
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical"
+                                    android:paddingHorizontal="12dp">
 
-                                <TextView
-                                    android:id="@+id/day3Total"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Total: ₱250"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="end|center_vertical"
-                                    android:minWidth="120dp"
-                                    android:textAlignment="textEnd" />
-                            </LinearLayout>
+                                    <TextView
+                                        android:id="@+id/day3Label"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Mon"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="start|center_vertical" />
+
+                                    <TextView
+                                        android:id="@+id/day3Total"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Total: ₱250"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="end|center_vertical"
+                                        android:minWidth="120dp"
+                                        android:textAlignment="textEnd" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
 
                             <!-- Day 4 -->
-                            <LinearLayout
+                            <com.google.android.material.card.MaterialCardView
                                 android:layout_width="match_parent"
                                 android:layout_height="48dp"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="4dp"
-                                android:gravity="center_vertical"
-                                android:paddingHorizontal="12dp"
-                                android:paddingVertical="8dp">
+                                android:layout_marginBottom="8dp"
+                                app:strokeColor="@color/black"
+                                app:strokeWidth="2dp"
+                                app:cardBackgroundColor="@color/dirty_white"
+                                app:cardCornerRadius="15dp"
+                                app:cardElevation="2dp">
 
-                                <TextView
-                                    android:id="@+id/day4Label"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Tue"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="start|center_vertical" />
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical"
+                                    android:paddingHorizontal="12dp">
 
-                                <TextView
-                                    android:id="@+id/day4Total"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Total: ₱250"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="end|center_vertical"
-                                    android:minWidth="120dp"
-                                    android:textAlignment="textEnd" />
-                            </LinearLayout>
+                                    <TextView
+                                        android:id="@+id/day4Label"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Tue"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="start|center_vertical" />
+
+                                    <TextView
+                                        android:id="@+id/day4Total"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Total: ₱250"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="end|center_vertical"
+                                        android:minWidth="120dp"
+                                        android:textAlignment="textEnd" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
 
                             <!-- Day 5 -->
-                            <LinearLayout
+                            <com.google.android.material.card.MaterialCardView
                                 android:layout_width="match_parent"
                                 android:layout_height="48dp"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="4dp"
-                                android:gravity="center_vertical"
-                                android:paddingHorizontal="12dp"
-                                android:paddingVertical="8dp">
+                                android:layout_marginBottom="8dp"
+                                app:strokeColor="@color/black"
+                                app:strokeWidth="2dp"
+                                app:cardBackgroundColor="@color/dirty_white"
+                                app:cardCornerRadius="15dp"
+                                app:cardElevation="2dp">
 
-                                <TextView
-                                    android:id="@+id/day5Label"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Wed"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="start|center_vertical" />
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical"
+                                    android:paddingHorizontal="12dp">
 
-                                <TextView
-                                    android:id="@+id/day5Total"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Total: ₱250"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="end|center_vertical"
-                                    android:minWidth="120dp"
-                                    android:textAlignment="textEnd" />
-                            </LinearLayout>
+                                    <TextView
+                                        android:id="@+id/day5Label"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Wed"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="start|center_vertical" />
+
+                                    <TextView
+                                        android:id="@+id/day5Total"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Total: ₱250"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="end|center_vertical"
+                                        android:minWidth="120dp"
+                                        android:textAlignment="textEnd" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
 
                             <!-- Day 6 -->
-                            <LinearLayout
+                            <com.google.android.material.card.MaterialCardView
                                 android:layout_width="match_parent"
                                 android:layout_height="48dp"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="4dp"
-                                android:gravity="center_vertical"
-                                android:paddingHorizontal="12dp"
-                                android:paddingVertical="8dp">
+                                android:layout_marginBottom="8dp"
+                                app:strokeColor="@color/black"
+                                app:strokeWidth="2dp"
+                                app:cardBackgroundColor="@color/dirty_white"
+                                app:cardCornerRadius="15dp"
+                                app:cardElevation="2dp">
 
-                                <TextView
-                                    android:id="@+id/day6Label"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Thu"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="start|center_vertical" />
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical"
+                                    android:paddingHorizontal="12dp">
 
-                                <TextView
-                                    android:id="@+id/day6Total"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Total: ₱250"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="end|center_vertical"
-                                    android:minWidth="120dp"
-                                    android:textAlignment="textEnd" />
-                            </LinearLayout>
+                                    <TextView
+                                        android:id="@+id/day6Label"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Thu"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="start|center_vertical" />
+
+                                    <TextView
+                                        android:id="@+id/day6Total"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Total: ₱250"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="end|center_vertical"
+                                        android:minWidth="120dp"
+                                        android:textAlignment="textEnd" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
 
                             <!-- Day 7 -->
-                            <LinearLayout
+                            <com.google.android.material.card.MaterialCardView
                                 android:layout_width="match_parent"
                                 android:layout_height="48dp"
-                                android:orientation="horizontal"
-                                android:gravity="center_vertical"
-                                android:paddingHorizontal="12dp"
-                                android:paddingVertical="8dp">
+                                app:strokeColor="@color/black"
+                                app:strokeWidth="2dp"
+                                app:cardBackgroundColor="@color/dirty_white"
+                                app:cardCornerRadius="15dp"
+                                app:cardElevation="2dp">
 
-                                <TextView
-                                    android:id="@+id/day7Label"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Fri"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="start|center_vertical" />
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical"
+                                    android:paddingHorizontal="12dp">
 
-                                <TextView
-                                    android:id="@+id/day7Total"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:fontFamily="@font/russo_one"
-                                    android:text="Total: ₱250"
-                                    android:textColor="@android:color/black"
-                                    android:textSize="16sp"
-                                    android:gravity="end|center_vertical"
-                                    android:minWidth="120dp"
-                                    android:textAlignment="textEnd" />
-                            </LinearLayout>
+                                    <TextView
+                                        android:id="@+id/day7Label"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Fri"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="start|center_vertical" />
+
+                                    <TextView
+                                        android:id="@+id/day7Total"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:fontFamily="@font/russo_one"
+                                        android:text="Total: ₱250"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="16sp"
+                                        android:gravity="end|center_vertical"
+                                        android:minWidth="120dp"
+                                        android:textAlignment="textEnd" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
 
                         </LinearLayout>
-                    </androidx.cardview.widget.CardView>
+                    </com.google.android.material.card.MaterialCardView>
 
                 </LinearLayout>
             </androidx.cardview.widget.CardView>

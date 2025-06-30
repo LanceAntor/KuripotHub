@@ -20,4 +20,14 @@
         <item name="android:windowEnterAnimation">@android:anim/fade_in</item>
         <item name="android:windowExitAnimation">@android:anim/fade_out</item>
     </style>
+    
+    <!-- Custom RadioButton style with yellow accent -->
+    <style name="YellowRadioButton" parent="Widget.AppCompat.CompoundButton.RadioButton">
+        <item name="android:buttonTint">@color/radio_button_color</item>
+        <item name="buttonTint">@color/radio_button_color</item>
+        <item name="android:colorAccent">@color/yellow</item>
+        <item name="colorAccent">@color/yellow</item>
+        <item name="android:colorControlActivated">@color/yellow</item>
+        <item name="colorControlActivated">@color/yellow</item>
+    </style>
 </resources>
