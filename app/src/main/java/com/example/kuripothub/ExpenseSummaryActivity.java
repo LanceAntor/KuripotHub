@@ -4,6 +4,7 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
@@ -25,19 +26,23 @@ import java.util.Locale;
 import java.util.Map;
 
 /*
- * WEEKLY ANALYTICS WITH SATURDAY START:
+ * WEEKLY ANALYTICS WITH USER-CONFIGURABLE START DAY:
  * 
- * This analytics screen uses REAL data from Firebase and implements proper weekly periods:
+ * This analytics screen uses REAL data from Firebase and implements proper weekly periods
+ * based on the user's preferences.
  * 
- * PREFERENCES (FORCED):
- * - Start Day: Saturday (week starts every Saturday)
- * - Budget Reset: Every week (budget resets to original value every Saturday)
- * - Spending Limit: No Limit
+ * PREFERENCES (USER-CONFIGURABLE):
+ * - Start Day: Configurable (Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday)
+ * - Budget Reset: Configurable (Every week, Every month, Do not reset)
+ * - Spending Limit: Configurable (No Limit, or custom limit)
  * 
  * WEEKLY PERIOD CALCULATION:
- * - For June 30, 2025 (Monday), the current week is June 28 - July 4, 2025
- * - Shows statistics from Saturday (June 28) to Friday (July 4)
- * - Budget resets every Saturday to the user's original budget value
+ * - Week starts and ends based on user's selected start day preference
+ * - For example, if user selects Monday as start day:
+ *   Current week runs from Monday to Sunday
+ * - If user selects Saturday as start day:
+ *   Current week runs from Saturday to Friday
+ * - Budget resets based on user's budget reset preference
  * 
  * FOUR CATEGORIES:
  * 1. FOODS: breakfast, lunch, dinner, snack
@@ -45,8 +50,8 @@ import java.util.Map;
  * 3. PERSONAL NEEDS: Laundry, Mobile Load
  * 4. MISCELLANEOUS: All other categories
  * 
- * The pie chart displays expenses from the current week only, and the budget
- * automatically resets every Saturday to provide accurate weekly spending tracking.
+ * The pie chart displays expenses from the current week only, respecting the user's
+ * preferred week start day and budget reset preferences.
  */
 
 public class ExpenseSummaryActivity extends AppCompatActivity {
@@ -59,7 +64,8 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
     
     // UI Components
     private PieChart categoryPieChart;
-    private TextView day1Total, day2Total, day3Total, day4Total, day5Total, day6Total, day7Total;
+    private TextView[] dayTotalTextViews = new TextView[7];
+    private TextView[] dayLabelTextViews = new TextView[7];
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,14 +90,8 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
     private void initializeViews() {
         categoryPieChart = findViewById(R.id.savingsBarChart); // Use the bar chart view for pie chart
         
-        // Daily spending TextViews for all 7 days
-        day1Total = findViewById(R.id.day1Total);
-        day2Total = findViewById(R.id.day2Total);
-        day3Total = findViewById(R.id.day3Total);
-        day4Total = findViewById(R.id.day4Total);
-        day5Total = findViewById(R.id.day5Total);
-        day6Total = findViewById(R.id.day6Total);
-        day7Total = findViewById(R.id.day7Total);
+        // Set up dynamic daily spending layout
+        setupDynamicDailySpendingLayout();
     }
 
     private void setupBackButton() {
@@ -125,18 +125,19 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
     }
 
     private void loadAnalyticsData() {
-        Log.d(TAG, "Loading analytics with REAL database data and categorization...");
-        
-        // FORCE SET PREFERENCES AS REQUESTED
-        Log.d(TAG, "=== FORCING PREFERENCES ===");
-        android.content.SharedPreferences prefs = getSharedPreferences("KuripotHubPreferences", MODE_PRIVATE);
-        android.content.SharedPreferences.Editor editor = prefs.edit();
-        editor.putString("start_day", "Saturday");
-        editor.putString("budget_reset", "Every week");
-        editor.putString("spending_limit", "No Limit");
-        editor.apply();
-        Log.d(TAG, "Preferences set to: Saturday, Every week, No Limit");
-        
+        Log.d(TAG, "Loading analytics with REAL database data and user preferences...");
+
+        // GET USER PREFERENCES FROM PREFERENCE ACTIVITY
+        Log.d(TAG, "=== LOADING USER PREFERENCES ===");
+        String userStartDay = PreferenceActivity.getStartDay(this);
+        String userBudgetReset = PreferenceActivity.getBudgetReset(this);
+        String userSpendingLimit = PreferenceActivity.getSpendingLimit(this);
+
+        Log.d(TAG, "User preferences loaded:");
+        Log.d(TAG, "  Start day: " + userStartDay);
+        Log.d(TAG, "  Budget reset: " + userBudgetReset);
+        Log.d(TAG, "  Spending limit: " + userSpendingLimit);
+
         if (currentUserId == null) {
             Log.w(TAG, "No user ID available, trying to get current user...");
             if (firebaseManager.getCurrentUser() != null) {
@@ -148,63 +149,11 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
                 return;
             }
         }
-        
+
         Log.d(TAG, "Fetching expenses for user ID: " + currentUserId);
-        
-        // Debug: First check all expenses in database
-        debugFetchAllExpenses();
-        
-        // Try multiple user ID approaches
+
+        // Try all possible user IDs to fetch expenses for analytics
         tryMultipleUserIdApproaches();
-        
-        // Load real expenses from Firebase
-        firebaseManager.getUserExpenses(currentUserId)
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    Log.d(TAG, "Firebase query successful, documents returned: " + queryDocumentSnapshots.size());
-                    
-                    List<Expense> allExpenses = new ArrayList<>();
-                    
-                    // Convert Firebase documents to Expense objects
-                    for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
-                        Expense expense = document.toObject(Expense.class);
-                        if (expense != null) {
-                            expense.setId(document.getId());
-                            allExpenses.add(expense);
-                            Log.d(TAG, "Loaded expense: " + expense.getCategory() + " - ₱" + expense.getAmount() + 
-                                     " on " + expense.getDate() + " (UserID: " + expense.getUserId() + ")");
-                        } else {
-                            Log.w(TAG, "Failed to convert document to Expense object: " + document.getId());
-                        }
-                    }
-                    
-                    Log.d(TAG, "Loaded " + allExpenses.size() + " real expenses from database");
-                    
-                    // Debug: Show sample of all expenses
-                    if (!allExpenses.isEmpty()) {
-                        Log.d(TAG, "Sample of expenses found:");
-                        int count = 0;
-                        for (Expense expense : allExpenses) {
-                            Log.d(TAG, "  Expense " + (count + 1) + ": Date=" + expense.getDate() + 
-                                     ", Amount=₱" + expense.getAmount() + ", Category=" + expense.getCategory());
-                            count++;
-                            if (count >= 5) break; // Show first 5 only
-                        }
-                    }
-                    
-                    if (allExpenses.isEmpty()) {
-                        Log.w(TAG, "No expenses found in database at all, adding sample data");
-                        addSampleDataIfEmpty();
-                        return;
-                    }
-                    
-                    // Process real data with weekly period filtering
-                    processRealExpenseDataWithWeeklyPeriod(allExpenses);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error loading expenses from database", e);
-                    Log.w(TAG, "No real data available, showing empty state");
-                    showEmptyState();
-                });
     }
     
     private void processRealExpenseData(List<Expense> allExpenses) {
@@ -221,7 +170,8 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
         
         // Update charts and UI with real categorized data
         updateCategoryPieChart(allExpenses); // This now uses categorization
-        updateRealDailySpending(allExpenses);
+        String weekStartDate = PreferenceBasedDateUtils.getCurrentPeriodStartDate(this);
+        updateWeeklyDailySpending(allExpenses, weekStartDate); // Use the new dynamic method
         updateSummaryCards(totalExpenses);
         
         Log.d(TAG, "Analytics updated with real categorized data successfully");
@@ -363,6 +313,7 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
         */
     }
 
+    /* COMMENTED OUT - OLD METHOD, REPLACED BY updateWeeklyDailySpending
     private void updateDailySpending(List<Expense> expenses) {
         // Get the date range for the current period
         String startDate = PreferenceBasedDateUtils.getCurrentPeriodStartDate(this);
@@ -499,6 +450,7 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
             }
         }
     }
+    END OF COMMENTED OUT METHOD */
 
     private String getMainCategory(String category) {
         if (category == null) return "Miscellaneous";
@@ -729,6 +681,7 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
         Log.d(TAG, "=== END DEBUG ===");
     }
 
+    /* COMMENTED OUT - OLD METHOD
     private void updateSimpleDailySpending() {
         Log.d(TAG, "Updating simple daily spending...");
         
@@ -742,7 +695,7 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
             findViewById(R.id.day2Label),
             findViewById(R.id.day3Label),
             findViewById(R.id.day4Label),
-            findViewById(R.id.day5Label)
+            findViewById(R.id.day5Label}
         };
         
         // Update each day
@@ -760,7 +713,9 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
         
         Log.d(TAG, "Simple daily spending updated");
     }
+    END OF COMMENTED OUT METHOD */
 
+    /* COMMENTED OUT - OLD METHOD, REPLACED BY updateWeeklyDailySpending
     private void updateRealDailySpending(List<Expense> allExpenses) {
         Log.d(TAG, "Updating daily spending with real data...");
         
@@ -803,7 +758,7 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
             findViewById(R.id.day2Label),
             findViewById(R.id.day3Label),
             findViewById(R.id.day4Label),
-            findViewById(R.id.day5Label)
+            findViewById(R.id.day5Label}
         };
         
         // Update each day with real data
@@ -825,6 +780,7 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
         
         Log.d(TAG, "Real daily spending updated with " + dailyTotals.size() + " unique dates");
     }
+    */
     
     private void processRealExpenseDataWithWeeklyPeriod(List<Expense> allExpenses) {
         Log.d(TAG, "Processing real expense data with weekly period filtering...");
@@ -832,8 +788,8 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
         // Debug the filtering logic
         debugRealDataFiltering();
         
-        // Calculate the current weekly period (Saturday to Friday)
-        String weekStartDate = getCurrentWeekStartDate(); // June 28, 2025 (Saturday)
+        // Calculate the current weekly period based on user's preferred start day
+        String weekStartDate = getCurrentWeekStartDate(); // e.g., June 28, 2025 if Saturday is selected
         String weekEndDate = getCurrentWeekEndDate();     // July 4, 2025 (Friday)
         
         Log.d(TAG, "Current week period: " + weekStartDate + " to " + weekEndDate);
@@ -869,42 +825,84 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
     }
     
     /**
-     * Get the start date of the current week (Saturday)
-     * For June 30, 2025 (Monday), this should return June 28, 2025 (Saturday)
+     * Get the start date of the current week based on user preference
+     * Uses the user's selected start day from preferences (Monday, Tuesday, etc.)
      */
     private String getCurrentWeekStartDate() {
         Calendar calendar = Calendar.getInstance();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         
+        // Get user's preferred start day
+        String userStartDay = PreferenceActivity.getStartDay(this);
+        int preferredStartDay = getDayOfWeekConstant(userStartDay);
+        
         // Get current day of week (Sunday = 1, Monday = 2, ..., Saturday = 7)
         int currentDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
         
-        // Calculate days to go back to reach Saturday
-        int daysToGoBack;
-        if (currentDayOfWeek == Calendar.SATURDAY) {
-            // Today is Saturday, this is the start of the week
-            daysToGoBack = 0;
-        } else if (currentDayOfWeek == Calendar.SUNDAY) {
-            // Yesterday was Saturday
-            daysToGoBack = 1;
-        } else {
-            // Monday = 2, Tuesday = 3, etc.
-            // Days to go back: Monday = 2 days, Tuesday = 3 days, etc.
-            daysToGoBack = currentDayOfWeek - Calendar.SATURDAY;
-        }
+        // Calculate days to go back to reach the preferred start day
+        int daysToGoBack = calculateDaysToGoBack(currentDayOfWeek, preferredStartDay);
         
         calendar.add(Calendar.DAY_OF_YEAR, -daysToGoBack);
         String startDate = dateFormat.format(calendar.getTime());
         
         Log.d(TAG, "Week start calculation: Current day=" + currentDayOfWeek + 
+               ", Preferred start day=" + preferredStartDay + " (" + userStartDay + ")" +
                ", Days to go back=" + daysToGoBack + ", Start date=" + startDate);
         
         return startDate;
     }
     
     /**
-     * Get the end date of the current week (Friday)
-     * For the week starting June 28, 2025 (Saturday), this should return July 4, 2025 (Friday)
+     * Convert day name to Calendar constant
+     */
+    private int getDayOfWeekConstant(String dayName) {
+        switch (dayName.toLowerCase()) {
+            case "sunday": return Calendar.SUNDAY;
+            case "monday": return Calendar.MONDAY;
+            case "tuesday": return Calendar.TUESDAY;
+            case "wednesday": return Calendar.WEDNESDAY;
+            case "thursday": return Calendar.THURSDAY;
+            case "friday": return Calendar.FRIDAY;
+            case "saturday": return Calendar.SATURDAY;
+            default: return Calendar.MONDAY; // Default to Monday if unknown
+        }
+    }
+    
+    /**
+     * Calculate how many days to go back to reach the most recent occurrence of the start day
+     * 
+     * LOGIC EXPLANATION:
+     * - If today IS the selected start day (e.g., today is Monday, selected Monday): start from today (0 days back)
+     * - If today is AFTER the selected start day in the same week (e.g., today is Wednesday, selected Monday): 
+     *   go back to the most recent Monday (2 days back)
+     * - If today is BEFORE the selected start day in the week (e.g., today is Monday, selected Wednesday):
+     *   go back to the most recent Wednesday from previous week
+     * 
+     * EXAMPLES:
+     * - Today: Monday (June 30), Selected: Monday → Week starts June 30 (0 days back)
+     * - Today: Monday (June 30), Selected: Saturday → Week starts June 28 (2 days back) 
+     * - Today: Monday (June 30), Selected: Wednesday → Week starts June 25 (5 days back)
+     */
+    private int calculateDaysToGoBack(int currentDay, int startDay) {
+        if (currentDay == startDay) {
+            // Today is the start day - start from today
+            return 0;
+        } else if (currentDay > startDay) {
+            // Current day is later in the week than start day
+            // Go back to the most recent occurrence of start day
+            return currentDay - startDay;
+        } else {
+            // Current day is earlier in the week than start day
+            // Need to go back to previous week's occurrence of start day
+            // Example: Today is Monday (2), start day is Wednesday (4)
+            // Days back = (7 - 4) + 2 = 5 days (go back to previous Wednesday)
+            return (7 - startDay) + currentDay;
+        }
+    }
+    
+    /**
+     * Get the end date of the current week based on user's start day preference
+     * Calculates the end of the 7-day week starting from the user's preferred start day
      */
     private String getCurrentWeekEndDate() {
         String startDate = getCurrentWeekStartDate();
@@ -914,7 +912,7 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
             Calendar calendar = Calendar.getInstance();
             calendar.setTime(dateFormat.parse(startDate));
             
-            // Add 6 days to Saturday to get Friday
+            // Add 6 days to get the last day of the week (7-day period)
             calendar.add(Calendar.DAY_OF_YEAR, 6);
             
             String endDate = dateFormat.format(calendar.getTime());
@@ -1043,10 +1041,13 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
     }
     
     /**
-     * Update daily spending for the current week (Saturday to Friday) - All 7 days
+     * Update daily spending for the current week based on user's start day preference - All 7 days
      */
     private void updateWeeklyDailySpending(List<Expense> weeklyExpenses, String weekStartDate) {
         Log.d(TAG, "Updating weekly daily spending starting from " + weekStartDate + " (all 7 days)");
+        
+        // IMPORTANT: Recreate the dynamic layout to ensure correct day order based on current preferences
+        setupDynamicDailySpendingLayout();
         
         // Create a map to store daily totals for the week
         Map<String, Double> dailyTotals = new HashMap<>();
@@ -1060,43 +1061,48 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
             }
         }
         
-        // Get all 7 days of the current week (Saturday to Friday)
+        // Get all 7 days of the current week starting from user's preferred day
         try {
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
             SimpleDateFormat dayFormat = new SimpleDateFormat("EEE", Locale.getDefault());
             Calendar calendar = Calendar.getInstance();
             calendar.setTime(dateFormat.parse(weekStartDate));
             
-            TextView[] dayTotals = {day1Total, day2Total, day3Total, day4Total, day5Total, day6Total, day7Total};
-            TextView[] dayLabels = {
-                findViewById(R.id.day1Label),
-                findViewById(R.id.day2Label),
-                findViewById(R.id.day3Label),
-                findViewById(R.id.day4Label),
-                findViewById(R.id.day5Label),
-                findViewById(R.id.day6Label),
-                findViewById(R.id.day7Label)
-            };
+            TextView[] dayTotals = dayTotalTextViews;
+            TextView[] dayLabels = dayLabelTextViews;
             
-            // Show all 7 days of the week (Saturday to Friday)
+            // Show all 7 days of the week starting from user's preferred day
+            // But only show actual data for days that have already occurred
+            Calendar today = Calendar.getInstance();
+            String todayDateStr = dateFormat.format(today.getTime());
+            
             for (int i = 0; i < 7; i++) {
                 String date = dateFormat.format(calendar.getTime());
                 String dayName = dayFormat.format(calendar.getTime());
                 double dayTotal = dailyTotals.getOrDefault(date, 0.0);
+                
+                // Check if this date is in the future
+                boolean isFutureDate = date.compareTo(todayDateStr) > 0;
                 
                 if (i < dayLabels.length && dayLabels[i] != null) {
                     dayLabels[i].setText(dayName);
                 }
                 
                 if (i < dayTotals.length && dayTotals[i] != null) {
-                    if (dayTotal > 0) {
+                    if (isFutureDate) {
+                        // Future date - show as not yet happened
+                        dayTotals[i].setText("------");
+                        Log.d(TAG, "Day " + (i+1) + ": " + dayName + " (" + date + ") = Future date, showing ------");
+                    } else if (dayTotal > 0) {
+                        // Past/today date with spending
                         dayTotals[i].setText("Total: ₱" + String.format("%.0f", dayTotal));
+                        Log.d(TAG, "Day " + (i+1) + ": " + dayName + " (" + date + ") = ₱" + String.format("%.0f", dayTotal));
                     } else {
-                        dayTotals[i].setText("-----------");
+                        // Past/today date with no spending
+                        dayTotals[i].setText("------");
+                        Log.d(TAG, "Day " + (i+1) + ": " + dayName + " (" + date + ") = ₱0, showing ------");
                     }
                 }
-                
-                Log.d(TAG, "Day " + (i+1) + ": " + dayName + " (" + date + ") = ₱" + String.format("%.0f", dayTotal));
                 
                 // Move to next day
                 calendar.add(Calendar.DAY_OF_MONTH, 1);
@@ -1105,19 +1111,11 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
         } catch (Exception e) {
             Log.e(TAG, "Error updating weekly daily spending", e);
             
-            // Fallback: show generic labels
-            TextView[] dayTotals = {day1Total, day2Total, day3Total, day4Total, day5Total, day6Total, day7Total};
-            TextView[] dayLabels = {
-                findViewById(R.id.day1Label),
-                findViewById(R.id.day2Label),
-                findViewById(R.id.day3Label),
-                findViewById(R.id.day4Label),
-                findViewById(R.id.day5Label),
-                findViewById(R.id.day6Label),
-                findViewById(R.id.day7Label)
-            };
+            // Fallback: show generic labels based on user's preferred start day
+            TextView[] dayTotals = dayTotalTextViews;
+            TextView[] dayLabels = dayLabelTextViews;
             
-            String[] fallbackDays = {"Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"};
+            String[] fallbackDays = getFallbackDayNames();
             for (int i = 0; i < 7; i++) {
                 if (i < dayLabels.length && dayLabels[i] != null) {
                     dayLabels[i].setText(fallbackDays[i]);
@@ -1133,17 +1131,20 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
     
     /**
      * Update summary cards with weekly budget consideration
-     * Budget resets every Saturday to the original value
+     * Budget resets based on user's preference (weekly, monthly, or never)
      */
     private void updateSummaryCardsWithWeeklyBudget(double weeklyExpenses) {
         Log.d(TAG, "Updating summary cards with weekly budget reset logic...");
         
-        // Use the original budget value (resets every Saturday)
+        // Use the original budget value (resets based on user preference)
         double weeklyBudget = currentBudget > 0 ? currentBudget : 2000.0;
         double weeklySavings = Math.max(0, weeklyBudget - weeklyExpenses);
         
+        String userStartDay = PreferenceActivity.getStartDay(this);
+        String budgetReset = PreferenceActivity.getBudgetReset(this);
+        
         Log.d(TAG, "Weekly budget calculation:");
-        Log.d(TAG, "  Original budget (resets every Saturday): ₱" + weeklyBudget);
+        Log.d(TAG, "  Original budget (resets " + budgetReset.toLowerCase() + " starting " + userStartDay + "): ₱" + weeklyBudget);
         Log.d(TAG, "  Weekly expenses: ₱" + weeklyExpenses);
         Log.d(TAG, "  Weekly savings: ₱" + weeklySavings);
         
@@ -1180,18 +1181,10 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
         categoryPieChart.invalidate();
         
         // Clear daily spending for all 7 days
-        TextView[] dayTotals = {day1Total, day2Total, day3Total, day4Total, day5Total, day6Total, day7Total};
-        TextView[] dayLabels = {
-            findViewById(R.id.day1Label),
-            findViewById(R.id.day2Label),
-            findViewById(R.id.day3Label),
-            findViewById(R.id.day4Label),
-            findViewById(R.id.day5Label),
-            findViewById(R.id.day6Label),
-            findViewById(R.id.day7Label)
-        };
+        TextView[] dayTotals = dayTotalTextViews;
+        TextView[] dayLabels = dayLabelTextViews;
         
-        String[] dayNames = {"Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"};
+        String[] dayNames = getFallbackDayNames();
         
         for (int i = 0; i < 7; i++) {
             if (i < dayLabels.length && dayLabels[i] != null) {
@@ -1213,6 +1206,12 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
      */
     private void debugRealDataFiltering() {
         Log.d(TAG, "=== DEBUG: Real Data Filtering ===");
+        
+        // First debug the week start calculation
+        debugWeekStartCalculation();
+        
+        // Test the logic for different start days
+        testWeekStartLogicForDifferentDays();
         
         String weekStart = getCurrentWeekStartDate();
         String weekEnd = getCurrentWeekEndDate();
@@ -1289,7 +1288,8 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
         
         // Update UI with recent data
         updateCategoryPieChartForWeek(recentExpenses); // Reuse the same method
-        updateRecentDailySpending(recentExpenses);
+        String weekStartDate = PreferenceBasedDateUtils.getCurrentPeriodStartDate(this);
+        updateWeeklyDailySpending(recentExpenses, weekStartDate); // Use the new dynamic method
         updateSummaryCardsWithWeeklyBudget(totalRecentExpenses);
         
         // Show message about using recent data
@@ -1301,7 +1301,9 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
     
     /**
      * Update daily spending with recent data (last 7 days)
+     * DEPRECATED: This method is replaced by updateWeeklyDailySpending() which uses dynamic UI
      */
+    /*
     private void updateRecentDailySpending(List<Expense> recentExpenses) {
         Log.d(TAG, "Updating daily spending with recent data...");
         
@@ -1382,6 +1384,7 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
         
         Log.d(TAG, "Recent daily spending updated for last 7 days");
     }
+    */
     
     /**
      * Add sample test data if the database is completely empty
@@ -1495,11 +1498,16 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
     private void fetchExpensesWithoutUserFilter() {
         Log.d(TAG, "=== Fetching expenses without user filter ===");
         
+        // Get the correct week dates based on user's preference
+        String weekStartDate = getCurrentWeekStartDate();
+        String weekEndDate = getCurrentWeekEndDate();
+        Log.d(TAG, "Using user's preferred week: " + weekStartDate + " to " + weekEndDate);
+        
         com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
         
         db.collection("expenses")
-                .whereGreaterThanOrEqualTo("date", "2025-06-28")
-                .whereLessThanOrEqualTo("date", "2025-07-04")
+                .whereGreaterThanOrEqualTo("date", weekStartDate)
+                .whereLessThanOrEqualTo("date", weekEndDate)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     Log.d(TAG, "Found " + queryDocumentSnapshots.size() + " expenses in current week (all users):");
@@ -1521,9 +1529,10 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
                     if (!weekExpenses.isEmpty()) {
                         Log.d(TAG, "Using current week data regardless of user filter: " + weekExpenses.size() + " expenses, total: ₱" + totalAmount);
                         
-                        // Use this data for display
+                        // Use this data for display with the correct user-preferred week start date
+                        String userWeekStartDate = getCurrentWeekStartDate(); // Use user's preference instead of hardcoded date
                         updateCategoryPieChartForWeek(weekExpenses);
-                        updateWeeklyDailySpending(weekExpenses, "2025-06-28");
+                        updateWeeklyDailySpending(weekExpenses, userWeekStartDate);
                         updateSummaryCardsWithWeeklyBudget(totalAmount);
                     }
                 })
@@ -1596,6 +1605,370 @@ public class ExpenseSummaryActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to fetch expenses for " + userIdType, e);
+                });
+    }
+    
+    /**
+     * Generate fallback day names based on user's preferred start day
+     */
+    private String[] getFallbackDayNames() {
+        String userStartDay = PreferenceActivity.getStartDay(this);
+        String[] allDays = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+        String[] result = new String[7];
+        
+        int startIndex = 0;
+        switch (userStartDay.toLowerCase()) {
+            case "sunday": startIndex = 0; break;
+            case "monday": startIndex = 1; break;
+            case "tuesday": startIndex = 2; break;
+            case "wednesday": startIndex = 3; break;
+            case "thursday": startIndex = 4; break;
+            case "friday": startIndex = 5; break;
+            case "saturday": startIndex = 6; break;
+            default: startIndex = 1; // Default to Monday
+        }
+        
+        for (int i = 0; i < 7; i++) {
+            result[i] = allDays[(startIndex + i) % 7];
+        }
+        
+        return result;
+    }
+
+    /**
+     * Debug method to force set user preferences (for testing)
+     */
+    private void debugForceSetUserPreferences() {
+        Log.d(TAG, "=== DEBUG: Force Set User Preferences ===");
+        
+        // Force set preferences for testing
+        Log.d(TAG, "FORCING PREFERENCES FOR TEST...");
+        android.content.SharedPreferences prefs = getSharedPreferences("KuripotHubPreferences", MODE_PRIVATE);
+        android.content.SharedPreferences.Editor editor = prefs.edit();
+               editor.putString("start_day", "Saturday");
+        editor.putString("budget_reset", "Every week");
+        editor.putString("spending_limit", "No Limit");
+        editor.apply();
+        Log.d(TAG, "Preferences forced!");
+        
+        // Reload analytics to apply new preferences
+        loadAnalyticsData();
+        
+        Log.d(TAG, "=== END DEBUG ===");
+    }
+    
+    /**
+     * Test and debug the week start calculation for different scenarios
+     */
+    private void debugWeekStartCalculation() {
+        Log.d(TAG, "=== DEBUG: Week Start Calculation ===");
+        
+        String currentUserStart = PreferenceActivity.getStartDay(this);
+        Log.d(TAG, "Current user preference: " + currentUserStart);
+        
+        // Get today's info
+        Calendar today = Calendar.getInstance();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        SimpleDateFormat dayFormat = new SimpleDateFormat("EEEE", Locale.getDefault());
+        
+        String todayDate = dateFormat.format(today.getTime());
+        String todayDayName = dayFormat.format(today.getTime());
+        int todayDayOfWeek = today.get(Calendar.DAY_OF_WEEK);
+        
+        Log.d(TAG, "Today: " + todayDayName + " (" + todayDate + ") - Calendar constant: " + todayDayOfWeek);
+        
+        // Test all possible start days and show the 7-day sequence
+        String[] allDays = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+        
+        for (String testStartDay : allDays) {
+            int startDayConstant = getDayOfWeekConstant(testStartDay);
+            int daysBack = calculateDaysToGoBack(todayDayOfWeek, startDayConstant);
+            
+            Calendar testCalendar = Calendar.getInstance();
+            testCalendar.add(Calendar.DAY_OF_YEAR, -daysBack);
+            String calculatedStartDate = dateFormat.format(testCalendar.getTime());
+            String calculatedStartDayName = dayFormat.format(testCalendar.getTime());
+            
+            // Show the 7-day sequence for this start day
+            StringBuilder weekSequence = new StringBuilder();
+            Calendar seqCalendar = Calendar.getInstance();
+            seqCalendar.setTime(testCalendar.getTime());
+            
+            for (int i = 0; i < 7; i++) {
+                String seqDate = dateFormat.format(seqCalendar.getTime());
+                SimpleDateFormat shortDayFormat = new SimpleDateFormat("EEE", Locale.getDefault());
+                String shortDay = shortDayFormat.format(seqCalendar.getTime());
+                
+                // Check if this is today or future
+                String indicator = "";
+                if (seqDate.equals(todayDate)) {
+                    indicator = " [TODAY]";
+                } else if (seqDate.compareTo(todayDate) > 0) {
+                    indicator = " [FUTURE - show ------]";
+                } else {
+                    indicator = " [PAST - show data if exists]";
+                }
+                
+                weekSequence.append(shortDay).append("(").append(seqDate).append(")").append(indicator);
+                if (i < 6) weekSequence.append(" → ");
+                
+                seqCalendar.add(Calendar.DAY_OF_MONTH, 1);
+            }
+            
+            Log.d(TAG, "Start day: " + testStartDay + " → Week starts: " + calculatedStartDayName + " (" + calculatedStartDate + ") [" + daysBack + " days back]");
+            Log.d(TAG, "  Week sequence: " + weekSequence.toString());
+        }
+        
+        Log.d(TAG, "=== Current calculation result ===");
+        String actualStart = getCurrentWeekStartDate();
+        String actualEnd = getCurrentWeekEndDate();
+        Log.d(TAG, "Actual week: " + actualStart + " to " + actualEnd);
+        
+        Log.d(TAG, "=== END DEBUG ===");
+    }
+
+    /**
+     * Test method to demonstrate week start logic for different preferences
+     */
+    private void testWeekStartLogicForDifferentDays() {
+        Log.d(TAG, "=== TESTING WEEK START LOGIC ===");
+        
+        // Get today's info
+        Calendar today = Calendar.getInstance();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        SimpleDateFormat dayFormat = new SimpleDateFormat("EEE", Locale.getDefault());
+        
+        String todayDate = dateFormat.format(today.getTime());
+        String todayDayName = dayFormat.format(today.getTime());
+        
+        Log.d(TAG, "TODAY: " + todayDayName + " (" + todayDate + ")");
+        Log.d(TAG, "");
+        
+        // Test scenarios for different start days
+        String[] testDays = {"Saturday", "Monday", "Tuesday"};
+        
+        for (String startDay : testDays) {
+            Log.d(TAG, "=== IF USER CHOOSES " + startDay.toUpperCase() + " AS START DAY ===");
+            
+            // Temporarily save current preference
+            String originalPref = PreferenceActivity.getStartDay(this);
+            
+            // Set test preference
+            android.content.SharedPreferences prefs = getSharedPreferences("KuripotHubPreferences", MODE_PRIVATE);
+            android.content.SharedPreferences.Editor editor = prefs.edit();
+            editor.putString("start_day", startDay);
+            editor.apply();
+            
+            // Calculate week start
+            String weekStart = getCurrentWeekStartDate();
+            
+            // Show the 7-day sequence
+            Calendar weekCal = Calendar.getInstance();
+            try {
+                weekCal.setTime(dateFormat.parse(weekStart));
+                
+                StringBuilder sequence = new StringBuilder();
+                for (int i = 0; i < 7; i++) {
+                    String date = dateFormat.format(weekCal.getTime());
+                    String dayName = dayFormat.format(weekCal.getTime());
+                    
+                    String indicator = "";
+                    if (date.equals(todayDate)) {
+                        indicator = " [TODAY]";
+                    } else if (date.compareTo(todayDate) > 0) {
+                        indicator = " [FUTURE - show ------]";
+                    } else {
+                        indicator = " [PAST - show data if exists]";
+                    }
+                    
+                    sequence.append("Day ").append(i + 1).append(": ").append(dayName).append(" (").append(date).append(")").append(indicator);
+                    if (i < 6) sequence.append("\n");
+                    
+                    weekCal.add(Calendar.DAY_OF_MONTH, 1);
+                }
+                
+                Log.d(TAG, "Week starts: " + weekStart);
+                Log.d(TAG, "7-day sequence:\n" + sequence.toString());
+                
+            } catch (Exception e) {
+                Log.e(TAG, "Error parsing date", e);
+            }
+            
+            // Restore original preference
+            editor.putString("start_day", originalPref);
+            editor.apply();
+            
+            Log.d(TAG, "");
+        }
+        
+        Log.d(TAG, "=== END TESTING ===");
+    }
+
+    /**
+     * Set up dynamic daily spending layout based on user's preferred start day
+     */
+    private void setupDynamicDailySpendingLayout() {
+        LinearLayout container = findViewById(R.id.dailySpendingContainer);
+        container.removeAllViews(); // Clear any existing views
+        
+        // Get user's preferred start day
+        String userStartDay = PreferenceActivity.getStartDay(this);
+        Log.d(TAG, "=== SETTING UP DYNAMIC LAYOUT ===");
+        Log.d(TAG, "User's preferred start day: " + userStartDay);
+        
+        // Get the ordered list of day names starting from user's preference
+        String[] orderedDayNames = getOrderedDayNames(userStartDay);
+        Log.d(TAG, "Creating cards in order: " + java.util.Arrays.toString(orderedDayNames));
+        
+        // Initialize arrays for the dynamic TextViews
+        dayLabelTextViews = new TextView[7];
+        dayTotalTextViews = new TextView[7];
+        
+        // Create 7 day cards programmatically in the correct order
+        for (int i = 0; i < 7; i++) {
+            // Create the main card
+            com.google.android.material.card.MaterialCardView dayCard = new com.google.android.material.card.MaterialCardView(this);
+            
+            // Set card properties
+            LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (int) (48 * getResources().getDisplayMetrics().density) // 48dp in pixels
+            );
+            if (i < 6) { // Add margin bottom to all except last card
+                cardParams.bottomMargin = (int) (8 * getResources().getDisplayMetrics().density); // 8dp
+            }
+            dayCard.setLayoutParams(cardParams);
+            
+            // Set card styling
+            dayCard.setCardBackgroundColor(getResources().getColor(R.color.dirty_white));
+            dayCard.setStrokeColor(getResources().getColor(R.color.black));
+            dayCard.setStrokeWidth((int) (2 * getResources().getDisplayMetrics().density)); // 2dp
+            dayCard.setRadius(15 * getResources().getDisplayMetrics().density); // 15dp
+            dayCard.setCardElevation(2 * getResources().getDisplayMetrics().density); // 2dp
+            
+            // Create inner LinearLayout
+            LinearLayout innerLayout = new LinearLayout(this);
+            innerLayout.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            ));
+            innerLayout.setOrientation(LinearLayout.HORIZONTAL);
+            innerLayout.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            int paddingHorizontal = (int) (12 * getResources().getDisplayMetrics().density); // 12dp
+            innerLayout.setPadding(paddingHorizontal, 0, paddingHorizontal, 0);
+            
+            // Create day label TextView
+            TextView dayLabel = new TextView(this);
+            LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f
+            );
+            dayLabel.setLayoutParams(labelParams);
+            dayLabel.setTypeface(getResources().getFont(R.font.russo_one));
+            dayLabel.setText(orderedDayNames[i]); // Use the correct day name from ordered list
+            dayLabel.setTextColor(getResources().getColor(android.R.color.black));
+            dayLabel.setTextSize(16);
+            dayLabel.setGravity(android.view.Gravity.START | android.view.Gravity.CENTER_VERTICAL);
+            dayLabelTextViews[i] = dayLabel;
+            
+            // Create day total TextView
+            TextView dayTotal = new TextView(this);
+            LinearLayout.LayoutParams totalParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            dayTotal.setLayoutParams(totalParams);
+            dayTotal.setTypeface(getResources().getFont(R.font.russo_one));
+            dayTotal.setText("Total: ₱0"); // Temporary text
+            dayTotal.setTextColor(getResources().getColor(android.R.color.black));
+            dayTotal.setTextSize(16);
+            dayTotal.setGravity(android.view.Gravity.END | android.view.Gravity.CENTER_VERTICAL);
+            dayTotal.setMinWidth((int) (120 * getResources().getDisplayMetrics().density)); // 120dp
+            dayTotal.setTextAlignment(TextView.TEXT_ALIGNMENT_TEXT_END);
+            dayTotalTextViews[i] = dayTotal;
+            
+            // Add TextViews to inner layout
+            innerLayout.addView(dayLabel);
+            innerLayout.addView(dayTotal);
+            
+            // Add inner layout to card
+            dayCard.addView(innerLayout);
+            
+            // Add card to container
+            container.addView(dayCard);
+        }
+        
+        Log.d(TAG, "Dynamic daily spending layout created with 7 cards in order: " + java.util.Arrays.toString(orderedDayNames));
+        Log.d(TAG, "=== LAYOUT SETUP COMPLETE ===");
+    }
+
+    /**
+     * Get ordered day names starting from the user's preferred start day
+     */
+    private String[] getOrderedDayNames(String startDay) {
+        String[] allDays = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+        String[] orderedDays = new String[7];
+        
+        // Find the starting index
+        int startIndex = 0;
+        for (int i = 0; i < allDays.length; i++) {
+            if (allDays[i].equals(startDay)) {
+                startIndex = i;
+                break;
+            }
+        }
+        
+        // Create ordered array starting from the preferred start day
+        for (int i = 0; i < 7; i++) {
+            orderedDays[i] = allDays[(startIndex + i) % 7];
+        }
+        
+        Log.d(TAG, "Ordered days starting from " + startDay + ": " + java.util.Arrays.toString(orderedDays));
+        return orderedDays;
+    }
+    
+    /**
+     * Fetch expenses for the current user and current week only (fixes: no data showing)
+     */
+    private void fetchCurrentUserWeeklyExpenses() {
+        Log.d(TAG, "Fetching current user's expenses for the current week only...");
+
+        String weekStartDate = getCurrentWeekStartDate();
+        String weekEndDate = getCurrentWeekEndDate();
+        Log.d(TAG, "Week range: " + weekStartDate + " to " + weekEndDate);
+
+        if (currentUserId == null || currentUserId.isEmpty()) {
+            Log.e(TAG, "No current user ID set. Cannot fetch expenses.");
+            showEmptyState();
+            return;
+        }
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("expenses")
+                .whereEqualTo("userId", currentUserId)
+                .whereGreaterThanOrEqualTo("date", weekStartDate)
+                .whereLessThanOrEqualTo("date", weekEndDate)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    Log.d(TAG, "Found " + queryDocumentSnapshots.size() + " expenses for user in current week.");
+                    List<Expense> weekExpenses = new ArrayList<>();
+                    double totalAmount = 0.0;
+                    for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
+                        Expense expense = document.toObject(Expense.class);
+                        if (expense != null) {
+                            expense.setId(document.getId());
+                            weekExpenses.add(expense);
+                            totalAmount += expense.getAmount();
+                        }
+                    }
+                    if (!weekExpenses.isEmpty()) {
+                        processRealExpenseDataWithWeeklyPeriod(weekExpenses);
+                    } else {
+                        showEmptyState();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to fetch weekly expenses for user", e);
+                    showEmptyState();
                 });
     }
 }
