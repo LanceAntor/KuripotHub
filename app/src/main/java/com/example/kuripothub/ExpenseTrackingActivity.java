@@ -31,6 +31,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.example.kuripothub.models.Expense;
 import com.example.kuripothub.models.User;
 import com.example.kuripothub.utils.FirebaseManager;
+import com.example.kuripothub.utils.PreferenceBasedDateUtils;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
@@ -117,15 +118,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             }
         });
         
-        // Set click listener for Analytics button
-        TextView analyticsText = findViewById(R.id.analyticsText);
-        analyticsText.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent intent = new Intent(ExpenseTrackingActivity.this, ExpenseSummaryActivity.class);
-                startActivity(intent);
-            }
-        });
+
         
         // Set click listener for Budget Edit button
         View editContainer = findViewById(R.id.editContainer);
@@ -161,6 +154,16 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 showProfileModal();
+            }
+        });
+        
+        // Set click listener for Settings icon
+        ImageView settingsIcon = findViewById(R.id.settingsIcon);
+        settingsIcon.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(ExpenseTrackingActivity.this, PreferenceActivity.class);
+                startActivity(intent);
             }
         });
     }
@@ -354,22 +357,76 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             // Parse the amount and update the budget
             double expenseAmount = Double.parseDouble(amount.replaceAll("[^\\d.]", ""));
             
-            // Save expense to Firebase
-            saveExpenseToFirebase(category, expenseAmount);
+            // Check spending limits before processing expense
+            checkSpendingLimitAndProcess(category, expenseAmount);
             
-            // Decrease the budget
-            updateBudget(expenseAmount);
-            
-            // Add the transaction to the transactions container
-            addTransactionToView(category, amount);
-            
-            // Mark the category as used if it's a meal type
-            markCategoryAsUsed(category);
-            
-            Toast.makeText(this, category + " expense added: P" + String.format("%.2f", expenseAmount), Toast.LENGTH_SHORT).show();
         } catch (NumberFormatException e) {
             Toast.makeText(this, "Invalid amount format", Toast.LENGTH_SHORT).show();
         }
+    }
+    
+    private void checkSpendingLimitAndProcess(String category, double expenseAmount) {
+        if (!PreferenceBasedDateUtils.shouldEnforceSpendingLimit(this)) {
+            // No spending limit, proceed normally
+            saveAndUpdateExpense(category, expenseAmount);
+            return;
+        }
+        
+        // Calculate current period expenses and check against limit
+        calculateCurrentPeriodExpenses(currentPeriodExpenses -> {
+            double spendingLimitPercentage = PreferenceBasedDateUtils.getSpendingLimitPercentage(this);
+            double spendingLimit = currentBudget * spendingLimitPercentage;
+            double newTotal = currentPeriodExpenses + expenseAmount;
+            
+            if (newTotal > spendingLimit) {
+                // Show warning dialog
+                String limitPercent = PreferenceActivity.getSpendingLimit(this);
+                double overAmount = newTotal - spendingLimit;
+                
+                new AlertDialog.Builder(this)
+                    .setTitle("Spending Limit Warning")
+                    .setMessage("This expense will put you P" + String.format("%.2f", overAmount) + 
+                               " over your " + limitPercent + " spending limit.\n\n" +
+                               "Current spending: P" + String.format("%.2f", currentPeriodExpenses) + "\n" +
+                               "Spending limit: P" + String.format("%.2f", spendingLimit) + "\n" +
+                               "New expense: P" + String.format("%.2f", expenseAmount) + "\n\n" +
+                               "Do you want to continue anyway?")
+                    .setPositiveButton("Continue", (dialog, which) -> {
+                        saveAndUpdateExpense(category, expenseAmount);
+                    })
+                    .setNegativeButton("Cancel", (dialog, which) -> {
+                        // Do nothing, just dismiss
+                    })
+                    .show();
+            } else {
+                // Within limit, proceed normally
+                saveAndUpdateExpense(category, expenseAmount);
+                
+                // Show friendly reminder if close to limit
+                double remainingLimit = spendingLimit - newTotal;
+                if (remainingLimit < spendingLimit * 0.1) { // Less than 10% remaining
+                    String limitPercent = PreferenceActivity.getSpendingLimit(this);
+                    Toast.makeText(this, "Warning: Only P" + String.format("%.2f", remainingLimit) + 
+                                  " left in your " + limitPercent + " spending limit", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+    }
+    
+    private void saveAndUpdateExpense(String category, double expenseAmount) {
+        // Save expense to Firebase
+        saveExpenseToFirebase(category, expenseAmount);
+        
+        // Decrease the budget
+        updateBudget(expenseAmount);
+        
+        // Add the transaction to the transactions container
+        addTransactionToView(category, String.format("%.2f", expenseAmount));
+        
+        // Mark the category as used if it's a meal type
+        markCategoryAsUsed(category);
+        
+        Toast.makeText(this, category + " expense added: P" + String.format("%.2f", expenseAmount), Toast.LENGTH_SHORT).show();
     }
     
     private void updateBudget(double expenseAmount) {
@@ -385,18 +442,82 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     }
     
     private void updateBudgetDisplay() {
-        // Format the budget text
-        String budgetText = "P" + String.format("%.2f", Math.abs(currentBudget));
-        
-        if (currentBudget < 0) {
-            // Show negative budget in red with minus sign
-            budgetAmountText.setText("-" + budgetText);
-            budgetAmountText.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-        } else {
-            // Show positive budget in default color
-            budgetAmountText.setText(budgetText);
-            budgetAmountText.setTextColor(getResources().getColor(android.R.color.black));
+        // Calculate total expenses for current period based on user preferences
+        calculateCurrentPeriodExpenses(totalExpenses -> {
+            // Calculate spending limit based on user preferences
+            double spendingLimitPercentage = PreferenceBasedDateUtils.getSpendingLimitPercentage(this);
+            double effectiveBudget = currentBudget * spendingLimitPercentage;
+            double remainingBudget = currentBudget - totalExpenses;
+            
+            // Format the budget text
+            String budgetText;
+            
+            if (PreferenceBasedDateUtils.shouldEnforceSpendingLimit(this)) {
+                // Show spending limit info
+                double limitRemaining = effectiveBudget - totalExpenses;
+                String limitPercent = PreferenceActivity.getSpendingLimit(this);
+                
+                if (limitRemaining < 0) {
+                    // Over spending limit
+                    budgetText = "Over " + limitPercent + " limit by P" + String.format("%.2f", Math.abs(limitRemaining));
+                    budgetAmountText.setText(budgetText);
+                    budgetAmountText.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                } else {
+                    // Within spending limit
+                    budgetText = "P" + String.format("%.2f", limitRemaining) + " left (" + limitPercent + " limit)";
+                    budgetAmountText.setText(budgetText);
+                    
+                    // Color based on how close to limit
+                    if (limitRemaining < effectiveBudget * 0.1) { // Less than 10% remaining
+                        budgetAmountText.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
+                    } else {
+                        budgetAmountText.setTextColor(getResources().getColor(android.R.color.black));
+                    }
+                }
+            } else {
+                // Traditional budget display
+                budgetText = "P" + String.format("%.2f", Math.abs(remainingBudget));
+                
+                if (remainingBudget < 0) {
+                    // Show negative budget in red with minus sign
+                    budgetAmountText.setText("-" + budgetText);
+                    budgetAmountText.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                } else {
+                    // Show positive budget in default color
+                    budgetAmountText.setText(budgetText);
+                    budgetAmountText.setTextColor(getResources().getColor(android.R.color.black));
+                }
+            }
+        });
+    }
+    
+    private void calculateCurrentPeriodExpenses(ExpenseCalculationCallback callback) {
+        if (currentUserId == null) {
+            callback.onExpensesCalculated(0.0);
+            return;
         }
+        
+        firebaseManager.getUserExpenses(currentUserId)
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    double totalExpenses = 0.0;
+                    
+                    for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
+                        Expense expense = document.toObject(Expense.class);
+                        if (expense != null && PreferenceBasedDateUtils.isExpenseInCurrentPeriod(this, expense.getDate())) {
+                            totalExpenses += expense.getAmount();
+                        }
+                    }
+                    
+                    callback.onExpensesCalculated(totalExpenses);
+                })
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "Error calculating period expenses", e);
+                    callback.onExpensesCalculated(0.0);
+                });
+    }
+    
+    private interface ExpenseCalculationCallback {
+        void onExpensesCalculated(double totalExpenses);
     }
     
     private void addTransactionToView(String category, String amountStr) {

@@ -30,3 +30,56 @@ keystore.properties
 # Firebase debug files
 firebase-debug.log
 firestore-debug.log
+
+# Compiled class files (DO NOT COMMIT)
+*.class
+*.jar
+*.war
+*.ear
+*.aar
+
+# Build outputs (DO NOT COMMIT)
+/app/build/
+/build/
+*/build/
+/gradle/
+.gradle/
+
+# Debug and test files (DO NOT COMMIT)
+debug_issue.class
+**/debug_*.class
+test_*.class
+**/test_*.java
+**/debug_*.java
+
+# Android Studio generated files (DO NOT COMMIT)
+.idea/
+*.iws
+*.ipr
+out/
+gen/
+
+# Temporary files (DO NOT COMMIT)
+*.tmp
+*.temp
+*.log
+*.swp
+*.swo
+*~
+
+# OS generated files (DO NOT COMMIT)
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Gradle Wrapper (optional - some prefer to commit this)
+# gradle/wrapper/gradle-wrapper.jar
+
+# Signing files (NEVER COMMIT)
+*.jks
+*.keystore
+release.properties

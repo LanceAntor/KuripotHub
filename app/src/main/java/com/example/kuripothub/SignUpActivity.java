@@ -123,13 +123,12 @@ public class SignUpActivity extends AppCompatActivity {
         // Check if username is already taken
         submitButton.setEnabled(false);
         
-        // First check if username is available
         firebaseManager.checkUsernameAvailability(username)
                 .addOnCompleteListener(this, usernameTask -> {
                     if (usernameTask.isSuccessful()) {
                         if (usernameTask.getResult().isEmpty()) {
-                            // Username is available, now check if email exists in Firestore
-                            checkEmailAndProceed(email, username, password);
+                            // Username is available, proceed with registration
+                            proceedWithSignUp(email, username, password);
                         } else {
                             // Username is taken
                             submitButton.setEnabled(true);
@@ -141,25 +140,6 @@ public class SignUpActivity extends AppCompatActivity {
                         Toast.makeText(SignUpActivity.this, 
                             "Error checking username availability. Please try again.", 
                             Toast.LENGTH_SHORT).show();
-                    }
-                });
-    }
-
-    private void checkEmailAndProceed(String email, String username, String password) {
-        firebaseManager.getUserByEmail(email)
-                .addOnCompleteListener(this, emailTask -> {
-                    if (emailTask.isSuccessful()) {
-                        if (emailTask.getResult().isEmpty()) {
-                            // Email not in Firestore, proceed with registration
-                            proceedWithSignUp(email, username, password);
-                        } else {
-                            // Email exists in Firestore
-                            submitButton.setEnabled(true);
-                            emailInput.setError("Email is already registered");
-                        }
-                    } else {
-                        // Error checking email, but proceed anyway as this might be a network issue
-                        proceedWithSignUp(email, username, password);
                     }
                 });
     }
@@ -209,10 +189,7 @@ public class SignUpActivity extends AppCompatActivity {
                             String exceptionMessage = task.getException().getMessage();
                             if (exceptionMessage != null) {
                                 if (exceptionMessage.contains("email address is already in use")) {
-                                    // Firebase Auth account exists but no Firestore profile
-                                    // Try to sign in and create the missing profile
-                                    handleExistingAuthAccount(email, username, password);
-                                    return;
+                                    errorMessage = "This email is already registered";
                                 } else if (exceptionMessage.contains("email address is badly formatted")) {
                                     errorMessage = "Invalid email format";
                                 } else if (exceptionMessage.contains("password is invalid")) {
@@ -223,56 +200,6 @@ public class SignUpActivity extends AppCompatActivity {
                             }
                         }
                         Toast.makeText(SignUpActivity.this, errorMessage, Toast.LENGTH_LONG).show();
-                    }
-                });
-    }
-
-    private void handleExistingAuthAccount(String email, String username, String password) {
-        // Try to sign in with existing account
-        firebaseManager.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener(this, task -> {
-                    if (task.isSuccessful()) {
-                        FirebaseUser firebaseUser = firebaseManager.getCurrentUser();
-                        if (firebaseUser != null) {
-                            // Check if user profile exists in Firestore
-                            firebaseManager.getUserProfile(firebaseUser.getUid())
-                                    .addOnCompleteListener(profileTask -> {
-                                        if (profileTask.isSuccessful() && profileTask.getResult().exists()) {
-                                            // Profile exists, user is already registered
-                                            submitButton.setEnabled(true);
-                                            emailInput.setError("Email is already registered");
-                                            firebaseManager.signOut(); // Sign out since they're trying to register
-                                        } else {
-                                            // No profile exists, create one
-                                            User user = new User(
-                                                firebaseUser.getUid(),
-                                                email,
-                                                "",
-                                                username,
-                                                1000.0
-                                            );
-                                            
-                                            firebaseManager.createUserProfile(user)
-                                                    .addOnCompleteListener(createTask -> {
-                                                        submitButton.setEnabled(true);
-                                                        if (createTask.isSuccessful()) {
-                                                            Toast.makeText(SignUpActivity.this, 
-                                                                "Registration successful!", Toast.LENGTH_SHORT).show();
-                                                            startActivity(new Intent(SignUpActivity.this, PrefaceActivity.class));
-                                                            finish();
-                                                        } else {
-                                                            Toast.makeText(SignUpActivity.this, 
-                                                                "Failed to create profile. Please try again.", 
-                                                                Toast.LENGTH_LONG).show();
-                                                        }
-                                                    });
-                                        }
-                                    });
-                        }
-                    } else {
-                        // Couldn't sign in with existing account
-                        submitButton.setEnabled(true);
-                        emailInput.setError("Email is already registered with a different password");
                     }
                 });
     }

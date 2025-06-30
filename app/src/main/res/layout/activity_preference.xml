@@ -1,0 +1,626 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#808080">
+
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="30dp"
+        app:cardElevation="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/white"
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingVertical="30dp">
+
+            <!-- Back Button -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/backButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginBottom="20dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/yellow"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="4dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_arrow_back" />
+            </androidx.cardview.widget.CardView>
+
+            <!-- Title -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginBottom="30dp"
+                android:fontFamily="@font/russo_one"
+                android:text="PREFERENCE"
+                android:textColor="@android:color/black"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <!-- Day to Start Section -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:fontFamily="@font/russo_one"
+                android:text="Day to start"
+                android:textColor="@android:color/black"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:layout_marginBottom="15dp"
+                android:background="@android:color/black" />
+
+            <!-- Days Grid -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="15dp"
+                android:orientation="vertical">
+
+                <!-- First Row: Mon, Tue, Wed, Thu -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:orientation="horizontal"
+                    android:weightSum="4">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/mondayCard"
+                            android:layout_width="70dp"
+                            android:layout_height="35dp"
+                            android:clickable="true"
+                            android:focusable="true"
+                            app:cardBackgroundColor="@color/yellow"
+                            app:cardCornerRadius="15dp"
+                            app:cardElevation="2dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:fontFamily="@font/russo_one"
+                                android:gravity="center"
+                                android:text="Monday"
+                                android:textColor="@android:color/black"
+                                android:textSize="10sp" />
+                        </androidx.cardview.widget.CardView>
+
+                        <RadioButton
+                            android:id="@+id/mondayRadio"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp"
+                            android:checked="true" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/tuesdayCard"
+                            android:layout_width="70dp"
+                            android:layout_height="35dp"
+                            android:clickable="true"
+                            android:focusable="true"
+                            app:cardBackgroundColor="@color/yellow"
+                            app:cardCornerRadius="15dp"
+                            app:cardElevation="2dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:fontFamily="@font/russo_one"
+                                android:gravity="center"
+                                android:text="Tuesday"
+                                android:textColor="@android:color/black"
+                                android:textSize="10sp" />
+                        </androidx.cardview.widget.CardView>
+
+                        <RadioButton
+                            android:id="@+id/tuesdayRadio"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/wednesdayCard"
+                            android:layout_width="70dp"
+                            android:layout_height="35dp"
+                            android:clickable="true"
+                            android:focusable="true"
+                            app:cardBackgroundColor="@color/yellow"
+                            app:cardCornerRadius="15dp"
+                            app:cardElevation="2dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:fontFamily="@font/russo_one"
+                                android:gravity="center"
+                                android:text="Wednesday"
+                                android:textColor="@android:color/black"
+                                android:textSize="10sp" />
+                        </androidx.cardview.widget.CardView>
+
+                        <RadioButton
+                            android:id="@+id/wednesdayRadio"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/thursdayCard"
+                            android:layout_width="70dp"
+                            android:layout_height="35dp"
+                            android:clickable="true"
+                            android:focusable="true"
+                            app:cardBackgroundColor="@color/yellow"
+                            app:cardCornerRadius="15dp"
+                            app:cardElevation="2dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:fontFamily="@font/russo_one"
+                                android:gravity="center"
+                                android:text="Thursday"
+                                android:textColor="@android:color/black"
+                                android:textSize="10sp" />
+                        </androidx.cardview.widget.CardView>
+
+                        <RadioButton
+                            android:id="@+id/thursdayRadio"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Second Row: Fri, Sat, Sun -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:weightSum="3">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/fridayCard"
+                            android:layout_width="70dp"
+                            android:layout_height="35dp"
+                            android:clickable="true"
+                            android:focusable="true"
+                            app:cardBackgroundColor="@color/yellow"
+                            app:cardCornerRadius="15dp"
+                            app:cardElevation="2dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:fontFamily="@font/russo_one"
+                                android:gravity="center"
+                                android:text="Friday"
+                                android:textColor="@android:color/black"
+                                android:textSize="10sp" />
+                        </androidx.cardview.widget.CardView>
+
+                        <RadioButton
+                            android:id="@+id/fridayRadio"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/saturdayCard"
+                            android:layout_width="70dp"
+                            android:layout_height="35dp"
+                            android:clickable="true"
+                            android:focusable="true"
+                            app:cardBackgroundColor="@color/yellow"
+                            app:cardCornerRadius="15dp"
+                            app:cardElevation="2dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:fontFamily="@font/russo_one"
+                                android:gravity="center"
+                                android:text="Saturday"
+                                android:textColor="@android:color/black"
+                                android:textSize="10sp" />
+                        </androidx.cardview.widget.CardView>
+
+                        <RadioButton
+                            android:id="@+id/saturdayRadio"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/sundayCard"
+                            android:layout_width="70dp"
+                            android:layout_height="35dp"
+                            android:clickable="true"
+                            android:focusable="true"
+                            app:cardBackgroundColor="@color/yellow"
+                            app:cardCornerRadius="15dp"
+                            app:cardElevation="2dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:fontFamily="@font/russo_one"
+                                android:gravity="center"
+                                android:text="Sunday"
+                                android:textColor="@android:color/black"
+                                android:textSize="10sp" />
+                        </androidx.cardview.widget.CardView>
+
+                        <RadioButton
+                            android:id="@+id/sundayRadio"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Budget Reset Section -->
+            <!-- Budget Reset Section -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:layout_marginTop="20dp"
+                android:fontFamily="@font/russo_one"
+                android:text="Budget Reset"
+                android:textColor="@android:color/black"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:layout_marginBottom="15dp"
+                android:background="@android:color/black" />
+
+            <!-- Budget Reset Options -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="15dp"
+                android:orientation="horizontal"
+                android:weightSum="3">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/everyWeekCard"
+                        android:layout_width="90dp"
+                        android:layout_height="35dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/yellow"
+                        app:cardCornerRadius="15dp"
+                        app:cardElevation="2dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:fontFamily="@font/russo_one"
+                            android:gravity="center"
+                            android:text="Every week"
+                            android:textColor="@android:color/black"
+                            android:textSize="10sp" />
+                    </androidx.cardview.widget.CardView>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/everyMonthCard"
+                        android:layout_width="90dp"
+                        android:layout_height="35dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/yellow"
+                        app:cardCornerRadius="15dp"
+                        app:cardElevation="2dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:fontFamily="@font/russo_one"
+                            android:gravity="center"
+                            android:text="Every Month"
+                            android:textColor="@android:color/black"
+                            android:textSize="10sp" />
+                    </androidx.cardview.widget.CardView>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/doNotResetCard"
+                        android:layout_width="90dp"
+                        android:layout_height="35dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/yellow"
+                        app:cardCornerRadius="15dp"
+                        app:cardElevation="2dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:fontFamily="@font/russo_one"
+                            android:gravity="center"
+                            android:text="Do not reset"
+                            android:textColor="@android:color/black"
+                            android:textSize="9sp" />
+                    </androidx.cardview.widget.CardView>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- RadioGroup for Budget Reset -->
+            <RadioGroup
+                android:id="@+id/budgetResetRadioGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginStart="41dp"
+                android:layout_marginBottom="15dp"
+                android:gravity="center">
+
+                <RadioButton
+                    android:id="@+id/everyWeekRadio"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:checked="true" />
+
+                <RadioButton
+                    android:id="@+id/everyMonthRadio"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginLeft="45dp"
+                    android:gravity="center" />
+
+                <RadioButton
+                    android:id="@+id/doNotResetRadio"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginLeft="35dp"
+                    android:gravity="center" />
+            </RadioGroup>
+
+            <!-- Limit Spending Section -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:layout_marginTop="20dp"
+                android:fontFamily="@font/russo_one"
+                android:text="Limit Spending"
+                android:textColor="@android:color/black"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:layout_marginBottom="15dp"
+                android:background="@android:color/black" />
+
+            <!-- Limit Spending Options -->
+            <RadioGroup
+                android:id="@+id/spendingLimitRadioGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="30dp"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/russo_one"
+                        android:text="No Limit"
+                        android:textColor="@android:color/black"
+                        android:textSize="10sp" />
+
+                    <RadioButton
+                        android:id="@+id/noLimitRadio"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/russo_one"
+                        android:text="20%"
+                        android:textColor="@android:color/black"
+                        android:textSize="10sp" />
+
+                    <RadioButton
+                        android:id="@+id/twentyPercentRadio"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/russo_one"
+                        android:text="40%"
+                        android:textColor="@android:color/black"
+                        android:textSize="10sp" />
+
+                    <RadioButton
+                        android:id="@+id/fortyPercentRadio"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/russo_one"
+                        android:text="60%"
+                        android:textColor="@android:color/black"
+                        android:textSize="10sp" />
+
+                    <RadioButton
+                        android:id="@+id/sixtyPercentRadio"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp" />
+                </LinearLayout>
+            </RadioGroup>
+
+            <!-- Save Button -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/saveButton"
+                android:layout_width="100dp"
+                android:layout_height="40dp"
+                android:layout_gravity="end"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/yellow"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="4dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:fontFamily="@font/russo_one"
+                    android:gravity="center"
+                    android:text="Save"
+                    android:textColor="@android:color/black"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+            </androidx.cardview.widget.CardView>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+</androidx.constraintlayout.widget.ConstraintLayout>
