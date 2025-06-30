@@ -54,6 +54,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     private BottomSheetDialog categoryBottomSheet;
     private View categoryBottomSheetView;
     private double currentBudget = 2000.00; // Default budget
+    private double originalBudget = 2000.00; // Add this at the top of the class, or initialize from user profile if available
     private TextView budgetAmountText;
     private FirebaseManager firebaseManager;
     private String currentUserId;
@@ -978,8 +979,8 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             categoryIcon.setVisibility(View.VISIBLE);
         }
         
-        // Pre-fill with current budget
-        amountInput.setText(String.format("%.2f", currentBudget));
+        // Pre-fill with original budget
+        amountInput.setText(String.format("%.2f", originalBudget));
         amountInput.setHint("Enter new budget amount");
 
         // Set up button listeners
@@ -989,19 +990,19 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             String newBudgetText = amountInput.getText().toString().trim();
             if (!newBudgetText.isEmpty()) {
                 try {
-                    double newBudget = Double.parseDouble(newBudgetText.replaceAll("[^\\d.]", ""));
-                    if (newBudget >= 0) {
-                        // Update the budget
-                        currentBudget = newBudget;
-                        updateBudgetDisplay();
-                        
-                        // Update budget in Firebase
-                        updateBudgetInFirebase();
-                        
-                        Toast.makeText(this, "Budget updated successfully", Toast.LENGTH_SHORT).show();
+                    double newOriginalBudget = Double.parseDouble(newBudgetText.replaceAll("[^\\d.]", ""));
+                    if (newOriginalBudget >= 0) {
+                        originalBudget = newOriginalBudget;
+                        // Update only the originalBudgetAmount TextView
+                        TextView originalBudgetAmount = findViewById(R.id.originalBudgetAmount);
+                        if (originalBudgetAmount != null) {
+                            originalBudgetAmount.setText("P" + String.format("%.2f", originalBudget));
+                        }
+                        updateBudgetInFirebase(); // <-- Ensure Firestore is updated
                         budgetDialog.dismiss();
+                        Toast.makeText(this, "Original budget updated", Toast.LENGTH_SHORT).show();
                     } else {
-                        Toast.makeText(this, "Budget cannot be negative", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "Budget must be non-negative", Toast.LENGTH_SHORT).show();
                     }
                 } catch (NumberFormatException e) {
                     Toast.makeText(this, "Please enter a valid amount", Toast.LENGTH_SHORT).show();
@@ -1022,6 +1023,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         User user = documentSnapshot.toObject(User.class);
                         if (user != null) {
                             currentBudget = user.getBudget();
+                            originalBudget = currentBudget; // Initialize original budget from user profile
                             updateBudgetDisplay();
                             
                             // Update username display
@@ -1127,12 +1129,13 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     }
     
     private void updateBudgetInFirebase() {
-        firebaseManager.updateUserBudget(currentUserId, currentBudget)
+        // Save the original budget to Firebase instead of the current budget
+        firebaseManager.updateUserBudget(currentUserId, originalBudget)
                 .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Budget updated successfully");
+                    Log.d(TAG, "Original budget updated successfully in Firebase");
                 })
                 .addOnFailureListener(e -> {
-                    Log.w(TAG, "Error updating budget", e);
+                    Log.w(TAG, "Error updating original budget", e);
                 });
     }
 
@@ -1788,7 +1791,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         }
                     }
                     
-                    // Save updated cache
+                    // Save updated cache without the temp expense
                     cacheExpenses(cachedExpenses);
                     Log.d(TAG, "Removed expense " + expenseId + " from cache");
                 } catch (JSONException e) {
@@ -1956,11 +1959,12 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     JSONObject expenseJson = cachedArray.getJSONObject(i);
                     String expenseId = expenseJson.getString("id");
                     
+                    
                     // Skip the temp expense (remove it)
                     if (!expenseId.equals(tempId)) {
                         Expense expense = new Expense();
                         expense.setId(expenseId);
-                        expense.setCategory(expenseJson.getString("category"));
+                                               expense.setCategory(expenseJson.getString("category"));
                         expense.setAmount(expenseJson.getDouble("amount"));
                         expense.setDate(expenseJson.getString("date"));
                         expense.setTimestamp(expenseJson.getLong("timestamp"));
