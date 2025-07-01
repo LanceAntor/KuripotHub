@@ -432,64 +432,27 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     
     private void updateBudget(double expenseAmount) {
         // Subtract the expense from the current budget
-        currentBudget -= expenseAmount;
-        
-        // Allow budget to go negative to show overspending
-        // Update the budget text view with color indication
+        double availableBudget = getAvailableBudget() - expenseAmount;
+        setAvailableBudget(availableBudget);
         updateBudgetDisplay();
-        
-        // Update budget in Firebase
+        updateBudgetInFirebase();
         updateBudgetInFirebase();
     }
     
     private void updateBudgetDisplay() {
-        // Calculate total expenses for current period based on user preferences
-        calculateCurrentPeriodExpenses(totalExpenses -> {
-            // Calculate spending limit based on user preferences
-            double spendingLimitPercentage = PreferenceBasedDateUtils.getSpendingLimitPercentage(this);
-            double effectiveBudget = currentBudget * spendingLimitPercentage;
-            double remainingBudget = currentBudget - totalExpenses;
-            
-            // Format the budget text
-            String budgetText;
-            
-            if (PreferenceBasedDateUtils.shouldEnforceSpendingLimit(this)) {
-                // Show spending limit info
-                double limitRemaining = effectiveBudget - totalExpenses;
-                String limitPercent = PreferenceActivity.getSpendingLimit(this);
-                
-                if (limitRemaining < 0) {
-                    // Over spending limit
-                    budgetText = "Over " + limitPercent + " limit by P" + String.format("%.2f", Math.abs(limitRemaining));
-                    budgetAmountText.setText(budgetText);
-                    budgetAmountText.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-                } else {
-                    // Within spending limit
-                    budgetText = "P" + String.format("%.2f", limitRemaining) + " left (" + limitPercent + " limit)";
-                    budgetAmountText.setText(budgetText);
-                    
-                    // Color based on how close to limit
-                    if (limitRemaining < effectiveBudget * 0.1) { // Less than 10% remaining
-                        budgetAmountText.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
-                    } else {
-                        budgetAmountText.setTextColor(getResources().getColor(android.R.color.black));
-                    }
-                }
-            } else {
-                // Traditional budget display
-                budgetText = "P" + String.format("%.2f", Math.abs(remainingBudget));
-                
-                if (remainingBudget < 0) {
-                    // Show negative budget in red with minus sign
-                    budgetAmountText.setText("-" + budgetText);
-                    budgetAmountText.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-                } else {
-                    // Show positive budget in default color
-                    budgetAmountText.setText(budgetText);
-                    budgetAmountText.setTextColor(getResources().getColor(android.R.color.black));
-                }
-            }
-        });
+        if (currentUserId == null) {
+            budgetAmountText.setText("P0");
+            return;
+        }
+        // Do NOT call checkAndResetAvailableBudgetIfNewPeriod() here!
+        double availableBudget = getAvailableBudget();
+        String availableText = "P" + String.format("%.0f", availableBudget);
+        budgetAmountText.setText(availableText);
+        if (availableBudget < 0) {
+            budgetAmountText.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        } else {
+            budgetAmountText.setTextColor(getResources().getColor(android.R.color.black));
+        }
     }
     
     private void calculateCurrentPeriodExpenses(ExpenseCalculationCallback callback) {
@@ -497,18 +460,21 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             callback.onExpensesCalculated(0.0);
             return;
         }
-        
+        // Get the current week period based on user preferences (same as summary)
+        String weekStart = PreferenceBasedDateUtils.getCurrentPeriodStartDate(this);
+        String weekEnd = PreferenceBasedDateUtils.getCurrentPeriodEndDate(this);
         firebaseManager.getUserExpenses(currentUserId)
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     double totalExpenses = 0.0;
-                    
                     for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
                         Expense expense = document.toObject(Expense.class);
-                        if (expense != null && PreferenceBasedDateUtils.isExpenseInCurrentPeriod(this, expense.getDate())) {
-                            totalExpenses += expense.getAmount();
+                        if (expense != null) {
+                            String expenseDate = expense.getDate();
+                            if (expenseDate != null && expenseDate.compareTo(weekStart) >= 0 && expenseDate.compareTo(weekEnd) <= 0) {
+                                totalExpenses += expense.getAmount();
+                            }
                         }
                     }
-                    
                     callback.onExpensesCalculated(totalExpenses);
                 })
                 .addOnFailureListener(e -> {
@@ -774,7 +740,8 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             
             // Parse the original amount and add it back to the budget
             double amountValue = Double.parseDouble(originalAmount.replaceAll("[^\\d.]", ""));
-            currentBudget += amountValue;
+            double availableBudget = getAvailableBudget() + amountValue;
+            setAvailableBudget(availableBudget);
             updateBudgetDisplay();
             
             // Get the expense ID from the transaction item's tag
@@ -875,17 +842,12 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
 
     private void updateTransaction(View transactionItem, String category, String originalAmount, String newAmount) {
         try {
-            // Parse amounts
             double oldAmountValue = Double.parseDouble(originalAmount.replaceAll("[^\\d.]", ""));
             double newAmountValue = Double.parseDouble(newAmount.replaceAll("[^\\d.]", ""));
-            
-            // Calculate the difference and update budget
             double difference = newAmountValue - oldAmountValue;
-            currentBudget -= difference;
-            
-            // Update budget display (allow negative values)
+            double availableBudget = getAvailableBudget() - difference;
+            setAvailableBudget(availableBudget);
             updateBudgetDisplay();
-            
             // Get the expense ID from the transaction item's tag
             String expenseId = (String) transactionItem.getTag();
             
@@ -992,15 +954,21 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 try {
                     double newOriginalBudget = Double.parseDouble(newBudgetText.replaceAll("[^\\d.]", ""));
                     if (newOriginalBudget >= 0) {
+                        double oldOriginalBudget = originalBudget;
                         originalBudget = newOriginalBudget;
+                        // Update available budget by the difference
+                        double availableBudget = getAvailableBudget() + (newOriginalBudget - oldOriginalBudget);
+                        setAvailableBudget(availableBudget);
+
                         // Update only the originalBudgetAmount TextView
                         TextView originalBudgetAmount = findViewById(R.id.originalBudgetAmount);
                         if (originalBudgetAmount != null) {
                             originalBudgetAmount.setText("P" + String.format("%.2f", originalBudget));
                         }
-                        updateBudgetInFirebase(); // <-- Ensure Firestore is updated
+                        updateBudgetInFirebase();
                         budgetDialog.dismiss();
                         Toast.makeText(this, "Original budget updated", Toast.LENGTH_SHORT).show();
+                        updateBudgetDisplay();
                     } else {
                         Toast.makeText(this, "Budget must be non-negative", Toast.LENGTH_SHORT).show();
                     }
@@ -1024,8 +992,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         if (user != null) {
                             currentBudget = user.getBudget();
                             originalBudget = currentBudget; // Initialize original budget from user profile
-                            updateBudgetDisplay();
-                            
+
                             // Update username display
                             TextView usernameText = findViewById(R.id.usernameText);
                             if (user.getUsername() != null && !user.getUsername().isEmpty()) {
@@ -1033,27 +1000,31 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                             } else {
                                 usernameText.setText("User");
                             }
-                            
+
                             Log.d(TAG, "User budget loaded: " + currentBudget);
                         }
                     } else {
                         Log.d(TAG, "No user profile found, using default budget");
-                        updateBudgetDisplay();
                     }
-                    
-                    // After loading user data, load today's expenses
+
+                    // After loading user data, recalculate available budget for the period
+                    checkAndResetAvailableBudgetIfNewPeriod();
+
+                    // After recalculation, load today's expenses
                     loadTodaysExpenses();
-                    
+
                     // Debug: Check all user expenses
                     debugUserExpenses();
                 })
                 .addOnFailureListener(e -> {
                     Log.w(TAG, "Error loading user data", e);
-                    updateBudgetDisplay();
-                    
+
+                    // Still recalculate available budget for the period
+                    checkAndResetAvailableBudgetIfNewPeriod();
+
                     // Even if user data fails, try to load expenses
                     loadTodaysExpenses();
-                    
+
                     // Debug: Check all user expenses
                     debugUserExpenses();
                 });
@@ -1459,16 +1430,18 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         // Only refresh if we're not already loading expenses
         if (currentUserId != null && !isLoadingExpenses) {
             Log.d(TAG, "Activity resumed, refreshing today's expenses");
-            
+
             // Add a small delay to prevent race conditions when coming back online
             new android.os.Handler().postDelayed(() -> {
                 if (!isLoadingExpenses) { // Double check
                     // Reset category states first, they will be set correctly after loading expenses
                     resetDailyCategoryStates();
+                    // Recalculate available budget if new period
+                    checkAndResetAvailableBudgetIfNewPeriod();
                     loadTodaysExpenses();
                 }
             }, 100); // 100ms delay
-            
+
         } else if (isLoadingExpenses) {
             Log.d(TAG, "Activity resumed but expenses are already loading, skipping");
         }
@@ -1586,6 +1559,26 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         lunchUsed = false;
         dinnerUsed = false;
     }
+    
+    private void checkAndResetAvailableBudgetIfNewPeriod() {
+    SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+    String lastPeriodKey = prefs.getString("last_period_key_" + currentUserId, "");
+    String currentPeriodKey = getCurrentPeriodKey();
+    if (!currentPeriodKey.equals(lastPeriodKey)) {
+        // New week/period detected, recalculate available budget from database
+        calculateCurrentPeriodExpenses(totalExpenses -> {
+            double newAvailableBudget = originalBudget - totalExpenses;
+            setAvailableBudget(newAvailableBudget);
+            // Only update the display here, after recalculation
+            runOnUiThread(this::updateBudgetDisplay);
+            // Save the new period key
+            prefs.edit().putString("last_period_key_" + currentUserId, currentPeriodKey).apply();
+        });
+    } else {
+        // If not a new period, just update the display with the current value
+        runOnUiThread(this::updateBudgetDisplay);
+    }
+}
     
     private boolean isNetworkAvailable() {
         ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -2001,5 +1994,27 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     private interface SyncCallback {
         void onSyncSuccess(String tempId, String firebaseId);
         void onSyncFailure(String tempId, Exception e);
+    }
+
+    private String getCurrentPeriodKey() {
+        // Use week start date as key
+        return PreferenceBasedDateUtils.getCurrentPeriodStartDate(this);
+    }
+
+    private double getAvailableBudget() {
+        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+        String key = "available_budget_" + currentUserId + "_" + getCurrentPeriodKey();
+        return Double.longBitsToDouble(prefs.getLong(key, Double.doubleToLongBits(originalBudget)));
+    }
+
+    private void setAvailableBudget(double value) {
+        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+        String key = "available_budget_" + currentUserId + "_" + getCurrentPeriodKey();
+        prefs.edit().putLong(key, Double.doubleToLongBits(value)).apply();
+    }
+
+    // Call this at the start of a new period/week
+    private void resetAvailableBudgetToOriginal() {
+        setAvailableBudget(originalBudget);
     }
 }
