@@ -35,6 +35,7 @@ import com.example.kuripothub.utils.PreferenceBasedDateUtils;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -431,12 +432,17 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     }
     
     private void updateBudget(double expenseAmount) {
-        // Subtract the expense from the current budget
+        // Subtract the expense from the available budget (for spending logic)
         double availableBudget = getAvailableBudget() - expenseAmount;
         setAvailableBudget(availableBudget);
-        updateBudgetDisplay();
+        
+        // Immediately recalculate amount budget like Expense Summary approach
+        calculateAndSetAmountBudget();
+        
+        // Update Firebase budget
         updateBudgetInFirebase();
-        updateBudgetInFirebase();
+        
+        Log.d(TAG, "Budget updated - Expense: " + expenseAmount + ", Available Budget: " + availableBudget);
     }
     
     private void updateBudgetDisplay() {
@@ -444,15 +450,20 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             budgetAmountText.setText("P0");
             return;
         }
+        // Display the amountBudget (similar to saved card in summary)
         // Do NOT call checkAndResetAvailableBudgetIfNewPeriod() here!
-        double availableBudget = getAvailableBudget();
-        String availableText = "P" + String.format("%.0f", availableBudget);
-        budgetAmountText.setText(availableText);
-        if (availableBudget < 0) {
+        double amountBudget = getAmountBudget();
+        String amountText = "P" + String.format("%.0f", amountBudget);
+        budgetAmountText.setText(amountText);
+        
+        // Change color based on amountBudget value
+        if (amountBudget < 0) {
             budgetAmountText.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
         } else {
             budgetAmountText.setTextColor(getResources().getColor(android.R.color.black));
         }
+        
+        Log.d(TAG, "Budget display updated - AmountBudget: " + amountBudget + ", OriginalBudget: " + originalBudget);
     }
     
     private void calculateCurrentPeriodExpenses(ExpenseCalculationCallback callback) {
@@ -460,21 +471,31 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             callback.onExpensesCalculated(0.0);
             return;
         }
+        
         // Get the current week period based on user preferences (same as summary)
         String weekStart = PreferenceBasedDateUtils.getCurrentPeriodStartDate(this);
         String weekEnd = PreferenceBasedDateUtils.getCurrentPeriodEndDate(this);
+        
+        Log.d(TAG, "Calculating period expenses from " + weekStart + " to " + weekEnd);
+        
         firebaseManager.getUserExpenses(currentUserId)
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     double totalExpenses = 0.0;
+                    int expenseCount = 0;
+                    
                     for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
                         Expense expense = document.toObject(Expense.class);
                         if (expense != null) {
                             String expenseDate = expense.getDate();
                             if (expenseDate != null && expenseDate.compareTo(weekStart) >= 0 && expenseDate.compareTo(weekEnd) <= 0) {
                                 totalExpenses += expense.getAmount();
+                                expenseCount++;
+                                Log.d(TAG, "Expense in period: " + expense.getCategory() + " - P" + expense.getAmount() + " on " + expenseDate);
                             }
                         }
                     }
+                    
+                    Log.d(TAG, "Period calculation complete - Total: P" + totalExpenses + " from " + expenseCount + " expenses");
                     callback.onExpensesCalculated(totalExpenses);
                 })
                 .addOnFailureListener(e -> {
@@ -738,11 +759,15 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             TextView categoryNameView = transactionItem.findViewById(R.id.categoryName);
             String category = categoryNameView != null ? categoryNameView.getText().toString() : "";
             
-            // Parse the original amount and add it back to the budget
+            // Parse the original amount and add it back to available budget
             double amountValue = Double.parseDouble(originalAmount.replaceAll("[^\\d.]", ""));
             double availableBudget = getAvailableBudget() + amountValue;
             setAvailableBudget(availableBudget);
-            updateBudgetDisplay();
+            
+            // Immediately recalculate amount budget like Expense Summary approach
+            calculateAndSetAmountBudget();
+            
+            Log.d(TAG, "Transaction deleted - Restored amount: " + amountValue + ", Available Budget: " + availableBudget);
             
             // Get the expense ID from the transaction item's tag
             String expenseId = (String) transactionItem.getTag();
@@ -768,9 +793,12 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                                 updateBudgetInFirebase();
                             } else {
                                 Toast.makeText(this, "Failed to delete expense from database", Toast.LENGTH_SHORT).show();
-                                // Revert budget change if deletion failed
-                                currentBudget -= amountValue;
-                                updateBudgetDisplay();
+                                // Revert available budget change if deletion failed
+                                double revertedAvailableBudget = getAvailableBudget() - amountValue;
+                                setAvailableBudget(revertedAvailableBudget);
+                                
+                                // Recalculate amount budget after reverting
+                                calculateAndSetAmountBudget();
                                 return;
                             }
                         });
@@ -845,9 +873,16 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             double oldAmountValue = Double.parseDouble(originalAmount.replaceAll("[^\\d.]", ""));
             double newAmountValue = Double.parseDouble(newAmount.replaceAll("[^\\d.]", ""));
             double difference = newAmountValue - oldAmountValue;
+            
+            // Update available budget by the difference
             double availableBudget = getAvailableBudget() - difference;
             setAvailableBudget(availableBudget);
-            updateBudgetDisplay();
+            
+            // Immediately recalculate amount budget like Expense Summary approach
+            calculateAndSetAmountBudget();
+            
+            Log.d(TAG, "Transaction updated - Difference: " + difference + ", Available Budget: " + availableBudget);
+            
             // Get the expense ID from the transaction item's tag
             String expenseId = (String) transactionItem.getTag();
             
@@ -956,9 +991,13 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     if (newOriginalBudget >= 0) {
                         double oldOriginalBudget = originalBudget;
                         originalBudget = newOriginalBudget;
+                        
                         // Update available budget by the difference
                         double availableBudget = getAvailableBudget() + (newOriginalBudget - oldOriginalBudget);
                         setAvailableBudget(availableBudget);
+                        
+                        // Immediately recalculate amount budget with new original budget (like Expense Summary)
+                        calculateAndSetAmountBudget();
 
                         // Update only the originalBudgetAmount TextView
                         TextView originalBudgetAmount = findViewById(R.id.originalBudgetAmount);
@@ -968,7 +1007,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         updateBudgetInFirebase();
                         budgetDialog.dismiss();
                         Toast.makeText(this, "Original budget updated", Toast.LENGTH_SHORT).show();
-                        updateBudgetDisplay();
+                        
+                        Log.d(TAG, "Original budget updated from " + oldOriginalBudget + " to " + newOriginalBudget +
+                              ", Available Budget: " + availableBudget);
                     } else {
                         Toast.makeText(this, "Budget must be non-negative", Toast.LENGTH_SHORT).show();
                     }
@@ -1002,9 +1043,15 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                             }
 
                             Log.d(TAG, "User budget loaded: " + currentBudget);
+                            
+                            // Immediately calculate amount budget from current period expenses (like Expense Summary)
+                            calculateAndSetAmountBudget();
                         }
                     } else {
                         Log.d(TAG, "No user profile found, using default budget");
+                        
+                        // Even with default budget, calculate amount budget from current period expenses
+                        calculateAndSetAmountBudget();
                     }
 
                     // After loading user data, recalculate available budget for the period
@@ -1018,6 +1065,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     Log.w(TAG, "Error loading user data", e);
+
+                    // Even if user data fails, calculate amount budget from current period expenses
+                    calculateAndSetAmountBudget();
 
                     // Still recalculate available budget for the period
                     checkAndResetAvailableBudgetIfNewPeriod();
@@ -1238,6 +1288,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             Log.d(TAG, "Offline - using cached data only");
             isLoadingExpenses = false;
         }
+        
+        // Force recalculate amount budget after expenses are loaded
+        recalculateAmountBudget();
     }
     
     private void syncWithFirebase() {
@@ -1348,6 +1401,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     
                     Log.d(TAG, "Finished loading " + firebaseExpenses.size() + " expenses from Firebase");
                     isLoadingExpenses = false; // Reset flag
+                    
+                    // Recalculate amount budget after Firebase sync
+                    recalculateAmountBudget();
                 })
                 .addOnFailureListener(e -> {
                     Log.w(TAG, "Error syncing with Firebase", e);
@@ -1399,6 +1455,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     
                     Log.d(TAG, "Found " + todayCount + " Firebase expenses using alternative sync method");
                     isLoadingExpenses = false; // Reset flag
+                    
+                    // Recalculate amount budget after alternative sync
+                    recalculateAmountBudget();
                 })
                 .addOnFailureListener(e -> {
                     Log.w(TAG, "Error syncing with alternative method", e);
@@ -1561,24 +1620,36 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     }
     
     private void checkAndResetAvailableBudgetIfNewPeriod() {
-    SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
-    String lastPeriodKey = prefs.getString("last_period_key_" + currentUserId, "");
-    String currentPeriodKey = getCurrentPeriodKey();
-    if (!currentPeriodKey.equals(lastPeriodKey)) {
-        // New week/period detected, recalculate available budget from database
-        calculateCurrentPeriodExpenses(totalExpenses -> {
-            double newAvailableBudget = originalBudget - totalExpenses;
-            setAvailableBudget(newAvailableBudget);
-            // Only update the display here, after recalculation
-            runOnUiThread(this::updateBudgetDisplay);
-            // Save the new period key
-            prefs.edit().putString("last_period_key_" + currentUserId, currentPeriodKey).apply();
-        });
-    } else {
-        // If not a new period, just update the display with the current value
-        runOnUiThread(this::updateBudgetDisplay);
+        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+        String lastPeriodKey = prefs.getString("last_period_key_" + currentUserId, "");
+        String currentPeriodKey = getCurrentPeriodKey();
+        
+        if (!currentPeriodKey.equals(lastPeriodKey)) {
+            // New week/period detected, recalculate both budgets from database
+            Log.d(TAG, "New period detected, recalculating budgets from originalBudget: " + originalBudget);
+            
+            // Use the same ExpenseSummary logic for period reset too
+            calculateWeeklyExpensesUsingExpenseSummaryLogic(totalWeeklyExpenses -> {
+                // Calculate available budget (for spending logic)
+                double newAvailableBudget = originalBudget - totalWeeklyExpenses;
+                setAvailableBudget(newAvailableBudget);
+                
+                // Calculate amount budget (same as "saved" in expense summary: originalBudget - totalExpenses)
+                double newAmountBudget = originalBudget - totalWeeklyExpenses;
+                setAmountBudget(newAmountBudget);
+                
+                // Only update the display here, after recalculation
+                runOnUiThread(this::updateBudgetDisplay);
+                // Save the new period key
+                prefs.edit().putString("last_period_key_" + currentUserId, currentPeriodKey).apply();
+                Log.d(TAG, "Period reset complete - AmountBudget (saved): " + newAmountBudget + ", AvailableBudget: " + newAvailableBudget + ", WeeklyExpenses: " + totalWeeklyExpenses);
+            });
+        } else {
+            // If not a new period, still calculate amount budget immediately (like Expense Summary)
+            Log.d(TAG, "Same period, calculating amount budget like Expense Summary...");
+            calculateAndSetAmountBudget();
+        }
     }
-}
     
     private boolean isNetworkAvailable() {
         ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -1824,6 +1895,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     expense.setTimestamp(expenseJson.getLong("timestamp"));
                     expense.setUserId(expenseJson.getString("userId"));
                     
+                                       
                     // Update if this is the expense we're looking for
                     if (expense.getId().equals(expenseId)) {
                         expense.setCategory(newCategory);
@@ -1928,7 +2000,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     callback.onSyncFailure(tempId, e);
                     // Keep the offline expense in cache for retry later
                 });
-    }
+       }
     
     /**
      * Remove an offline expense from cache by its temp ID
@@ -2013,8 +2085,220 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         prefs.edit().putLong(key, Double.doubleToLongBits(value)).apply();
     }
 
+    private double getAmountBudget() {
+        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+        String key = "amount_budget_" + currentUserId + "_" + getCurrentPeriodKey();
+        double value = Double.longBitsToDouble(prefs.getLong(key, Double.doubleToLongBits(originalBudget)));
+        Log.d(TAG, "getAmountBudget() - Key: " + key + ", Value: " + value + ", OriginalBudget: " + originalBudget);
+        return value;
+    }
+
+    private void setAmountBudget(double value) {
+        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+        String key = "amount_budget_" + currentUserId + "_" + getCurrentPeriodKey();
+        prefs.edit().putLong(key, Double.doubleToLongBits(value)).apply();
+        Log.d(TAG, "setAmountBudget() - Key: " + key + ", Value: " + value);
+    }
+
     // Call this at the start of a new period/week
     private void resetAvailableBudgetToOriginal() {
         setAvailableBudget(originalBudget);
+        setAmountBudget(originalBudget);
+        Log.d(TAG, "Reset both budgets to original amount: " + originalBudget);
+    }
+    
+    /**
+     * Calculate and set amount budget immediately (like Expense Summary approach)
+     */
+    private void calculateAndSetAmountBudget() {
+        Log.d(TAG, "Calculating and setting amount budget using exact ExpenseSummary logic...");
+        
+        // Use exact same logic as ExpenseSummaryActivity SAVED calculation
+        calculateWeeklyExpensesUsingExpenseSummaryLogic(totalWeeklyExpenses -> {
+            // Calculate saved amount exactly like ExpenseSummaryActivity (allow negative values)
+            double weeklySavings = originalBudget - totalWeeklyExpenses;
+            setAmountBudget(weeklySavings);
+            
+            // Update display immediately
+            runOnUiThread(this::updateBudgetDisplay);
+            
+            Log.d(TAG, "Amount budget calculated using ExpenseSummary logic: P" + weeklySavings + 
+                  " (Original budget: P" + originalBudget + " - Weekly expenses: P" + totalWeeklyExpenses + ")");
+        });
+    }
+    
+    /**
+     * Calculate weekly expenses using the exact same logic as ExpenseSummaryActivity
+     * This ensures the amountBudget matches the SAVED value in Expense Summary
+     */
+    private void calculateWeeklyExpensesUsingExpenseSummaryLogic(ExpenseCalculationCallback callback) {
+        if (currentUserId == null) {
+            Log.w(TAG, "Cannot calculate weekly expenses: currentUserId is null");
+            callback.onExpensesCalculated(0.0);
+            return;
+        }
+        
+        // Get all expenses for the user using the same approach as ExpenseSummaryActivity
+        com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+        
+        db.collection("expenses")
+                .whereEqualTo("userId", currentUserId)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    List<Expense> allExpenses = new ArrayList<>();
+                    for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
+                        Expense expense = document.toObject(Expense.class);
+                        if (expense != null) {
+                            expense.setId(document.getId());
+                            allExpenses.add(expense);
+                        }
+                    }
+                    
+                    Log.d(TAG, "Loaded " + allExpenses.size() + " total expenses for weekly calculation");
+                    
+                    // Calculate the current weekly period based on user's preferred start day (same as ExpenseSummaryActivity)
+                    String weekStartDate = getCurrentWeekStartDate();
+                    String weekEndDate = getCurrentWeekEndDate();
+                    
+                    Log.d(TAG, "Current week period: " + weekStartDate + " to " + weekEndDate);
+                    
+                    // Filter expenses to only include those in the current week (same as ExpenseSummaryActivity)
+                    double totalWeeklyExpenses = 0.0;
+                    int weeklyExpenseCount = 0;
+                    
+                    for (Expense expense : allExpenses) {
+                        String expenseDate = expense.getDate();
+                        if (expenseDate != null && isDateInCurrentWeek(expenseDate, weekStartDate, weekEndDate)) {
+                            totalWeeklyExpenses += expense.getAmount();
+                            weeklyExpenseCount++;
+                            Log.d(TAG, "Weekly expense included: " + expense.getCategory() + " - P" + expense.getAmount() + " on " + expenseDate);
+                        }
+                    }
+                    
+                    Log.d(TAG, "Total weekly expenses: P" + totalWeeklyExpenses + " from " + weeklyExpenseCount + " expenses");
+                    callback.onExpensesCalculated(totalWeeklyExpenses);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading expenses for weekly calculation", e);
+                    callback.onExpensesCalculated(0.0);
+                });
+    }
+    
+    /**
+     * Get current week start date based on user's preferred start day
+     * Copied exactly from ExpenseSummaryActivity
+     */
+    private String getCurrentWeekStartDate() {
+        java.util.Calendar calendar = java.util.Calendar.getInstance();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        
+        // Get user's preferred start day
+        String userStartDay = PreferenceActivity.getStartDay(this);
+        int preferredStartDay = getDayOfWeekConstant(userStartDay);
+        
+        // Get current day of week (Sunday = 1, Monday = 2, ..., Saturday = 7)
+        int currentDayOfWeek = calendar.get(java.util.Calendar.DAY_OF_WEEK);
+        
+        // Calculate days to go back to reach the preferred start day
+        int daysToGoBack = calculateDaysToGoBack(currentDayOfWeek, preferredStartDay);
+        
+        calendar.add(java.util.Calendar.DAY_OF_YEAR, -daysToGoBack);
+        String startDate = dateFormat.format(calendar.getTime());
+        
+        Log.d(TAG, "Week start calculation: Current day=" + currentDayOfWeek + 
+               ", Preferred start day=" + preferredStartDay + " (" + userStartDay + ")" +
+               ", Days to go back=" + daysToGoBack + ", Start date=" + startDate);
+        
+        return startDate;
+    }
+    
+    /**
+     * Get current week end date based on user's preferred start day
+     * Copied exactly from ExpenseSummaryActivity
+     */
+    private String getCurrentWeekEndDate() {
+        java.util.Calendar calendar = java.util.Calendar.getInstance();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        
+        // Get user's preferred start day
+        String userStartDay = PreferenceActivity.getStartDay(this);
+        int preferredStartDay = getDayOfWeekConstant(userStartDay);
+        
+        // Get current day of week
+        int currentDayOfWeek = calendar.get(java.util.Calendar.DAY_OF_WEEK);
+        
+        // Calculate days to go back to reach the preferred start day
+        int daysToGoBack = calculateDaysToGoBack(currentDayOfWeek, preferredStartDay);
+        
+        // Go back to start of week, then add 6 days to get end of week
+        calendar.add(java.util.Calendar.DAY_OF_YEAR, -daysToGoBack + 6);
+        String endDate = dateFormat.format(calendar.getTime());
+        
+        Log.d(TAG, "Week end calculation: End date=" + endDate);
+        
+        return endDate;
+    }
+    
+    /**
+     * Convert day name to Calendar constant
+     * Copied exactly from ExpenseSummaryActivity
+     */
+    private int getDayOfWeekConstant(String dayName) {
+        switch (dayName.toLowerCase()) {
+            case "sunday": return java.util.Calendar.SUNDAY;
+            case "monday": return java.util.Calendar.MONDAY;
+            case "tuesday": return java.util.Calendar.TUESDAY;
+            case "wednesday": return java.util.Calendar.WEDNESDAY;
+            case "thursday": return java.util.Calendar.THURSDAY;
+            case "friday": return java.util.Calendar.FRIDAY;
+            case "saturday": return java.util.Calendar.SATURDAY;
+            default: return java.util.Calendar.MONDAY; // Default to Monday if unknown
+        }
+    }
+    
+    /**
+     * Calculate days to go back to reach preferred start day
+     * Copied exactly from ExpenseSummaryActivity
+     */
+    private int calculateDaysToGoBack(int currentDay, int preferredStartDay) {
+        int daysToGoBack = (currentDay - preferredStartDay + 7) % 7;
+        Log.d(TAG, "Days to go back calculation: currentDay=" + currentDay + 
+               ", preferredStartDay=" + preferredStartDay + ", result=" + daysToGoBack);
+        return daysToGoBack;
+    }
+    
+    /**
+     * Check if a date is in the current week
+     * Copied exactly from ExpenseSummaryActivity
+     */
+    private boolean isDateInCurrentWeek(String expenseDate, String weekStart, String weekEnd) {
+        if (expenseDate == null || weekStart == null || weekEnd == null) {
+            return false;
+        }
+        
+        boolean inWeek = expenseDate.compareTo(weekStart) >= 0 && expenseDate.compareTo(weekEnd) <= 0;
+        Log.d(TAG, "Date check: " + expenseDate + " in [" + weekStart + " to " + weekEnd + "] = " + inWeek);
+        
+        return inWeek;
+    }
+    
+    /**
+     * Force recalculate amount budget based on current expenses
+     */
+    private void recalculateAmountBudget() {
+        if (currentUserId == null) {
+            Log.w(TAG, "Cannot recalculate amount budget: currentUserId is null");
+            return;
+        }
+        
+        Log.d(TAG, "Force recalculating amount budget using ExpenseSummary logic...");
+        // Use the same ExpenseSummary logic for consistency
+        calculateWeeklyExpensesUsingExpenseSummaryLogic(totalWeeklyExpenses -> {
+            double newAmountBudget = originalBudget - totalWeeklyExpenses;
+            setAmountBudget(newAmountBudget);
+            runOnUiThread(this::updateBudgetDisplay);
+            Log.d(TAG, "Amount budget force recalculated: " + newAmountBudget + 
+                  " (originalBudget: " + originalBudget + " - weeklyExpenses: " + totalWeeklyExpenses + ")");
+        });
     }
 }
