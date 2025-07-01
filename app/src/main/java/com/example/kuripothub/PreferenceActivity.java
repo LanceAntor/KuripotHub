@@ -1,9 +1,14 @@
 package com.example.kuripothub;
 
+import android.app.Dialog;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.view.Gravity;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
@@ -126,7 +131,7 @@ public class PreferenceActivity extends AppCompatActivity {
 
         // Save button
         CardView saveButton = findViewById(R.id.saveButton);
-        saveButton.setOnClickListener(v -> savePreferences());
+        saveButton.setOnClickListener(v -> showSaveConfirmationModal());
     }
 
     private void setupDayRadioButtonListeners() {
@@ -224,6 +229,46 @@ public class PreferenceActivity extends AppCompatActivity {
         if (radioButtonId != -1) {
             spendingLimitRadioGroup.check(radioButtonId);
         }
+    }
+
+    private void showSaveConfirmationModal() {
+        final Dialog confirmationDialog = new Dialog(this);
+        confirmationDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        confirmationDialog.setContentView(R.layout.preference_save_confirmation_modal);
+        
+        // Make dialog background transparent and apply animations
+        if (confirmationDialog.getWindow() != null) {
+            confirmationDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            confirmationDialog.getWindow().getAttributes().windowAnimations = R.style.DialogAnimation;
+            
+            // Center the dialog with proper sizing
+            WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
+            layoutParams.copyFrom(confirmationDialog.getWindow().getAttributes());
+            layoutParams.width = WindowManager.LayoutParams.WRAP_CONTENT;
+            layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT;
+            layoutParams.gravity = Gravity.CENTER;
+            confirmationDialog.getWindow().setAttributes(layoutParams);
+        }
+
+        // Set up UI elements
+        TextView titleText = confirmationDialog.findViewById(R.id.titleText);
+        TextView messageText = confirmationDialog.findViewById(R.id.messageText);
+        CardView noButton = confirmationDialog.findViewById(R.id.noButton);
+        CardView yesButton = confirmationDialog.findViewById(R.id.yesButton);
+
+        // Set the title and message
+        titleText.setText("PREFERENCE");
+        messageText.setText("Are you sure want to save?");
+
+        // Set up button listeners
+        noButton.setOnClickListener(v -> confirmationDialog.dismiss());
+        
+        yesButton.setOnClickListener(v -> {
+            confirmationDialog.dismiss();
+            savePreferences();
+        });
+
+        confirmationDialog.show();
     }
 
     private void savePreferences() {
