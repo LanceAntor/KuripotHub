@@ -453,7 +453,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         // Display the amountBudget (similar to saved card in summary)
         // Do NOT call checkAndResetAvailableBudgetIfNewPeriod() here!
         double amountBudget = getAmountBudget();
-        String amountText = "P" + String.format("%.0f", amountBudget);
+        String amountText = "P" + String.format("%.2f", amountBudget);
         budgetAmountText.setText(amountText);
         
         // Change color based on amountBudget value
