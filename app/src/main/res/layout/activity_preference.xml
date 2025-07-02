@@ -36,31 +36,33 @@
                 android:layout_marginBottom="20dp"
                 android:clickable="true"
                 android:focusable="true"
-                app:cardBackgroundColor="@color/yellow"
+                android:layout_marginStart="-8dp"
+                app:cardBackgroundColor="@android:color/transparent"
                 app:cardCornerRadius="20dp"
-                app:cardElevation="4dp">
+                app:cardElevation="0dp">
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:layout_gravity="center"
                     android:src="@drawable/ic_arrow_back" />
             </androidx.cardview.widget.CardView>
 
             <!-- Title -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:layout_marginBottom="30dp"
-                android:fontFamily="@font/russo_one"
-                android:text="PREFERENCE"
-                android:textColor="@android:color/black"
-                android:textSize="24sp"
-                android:textStyle="bold" />
 
-            <!-- Day to Start Section -->
-            <TextView
+                <!-- Day to Start Section -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginBottom="30dp"
+                    android:fontFamily="@font/russo_one"
+                    android:text="BUDGET PREFERENCE"
+                    android:textColor="@android:color/black"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
@@ -637,10 +639,12 @@
             </RadioGroup>
 
             <!-- Save Button -->
-            <androidx.cardview.widget.CardView
+            <com.google.android.material.card.MaterialCardView
                 android:id="@+id/saveButton"
                 android:layout_width="100dp"
                 android:layout_height="40dp"
+                app:strokeColor="@color/black"
+                app:strokeWidth="2dp"
                 android:layout_gravity="end"
                 android:layout_marginTop="20dp"
                 android:clickable="true"
@@ -657,7 +661,7 @@
                     android:textColor="@android:color/black"
                     android:textSize="14sp"
                     android:textStyle="bold" />
-            </androidx.cardview.widget.CardView>
+            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
     </ScrollView>

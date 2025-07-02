@@ -10,37 +10,40 @@
         android:id="@+id/backButton"
         android:layout_width="40dp"
         android:layout_height="40dp"
-        android:layout_marginStart="24dp"
+        android:layout_marginStart="18dp"
         android:layout_marginTop="52dp"
-        app:cardBackgroundColor="#FFDD00"
+        app:cardBackgroundColor="@android:color/transparent"
         app:cardCornerRadius="20dp"
-        app:cardElevation="2dp"
+        app:cardElevation="0dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
         <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:layout_gravity="center"
+
             android:src="@drawable/ic_arrow_back" />
     </androidx.cardview.widget.CardView>
 
     <!-- Title -->
+
+    <!-- Select Month Button -->
+
     <TextView
         android:id="@+id/titleText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="140dp"
+        android:layout_marginTop="60dp"
         android:fontFamily="@font/russo_one"
-        android:text="TRANSACTIONS"
+        android:text="TRANSACTIONS HISTORY"
         android:textColor="@android:color/black"
-        android:textSize="32sp"
+        android:textSize="20sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintStart_toStartOf="@id/backButton"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Select Month Button -->
     <androidx.cardview.widget.CardView
         android:id="@+id/selectMonthContainer"
         android:layout_width="130dp"

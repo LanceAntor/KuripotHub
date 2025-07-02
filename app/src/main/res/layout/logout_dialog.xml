@@ -52,7 +52,8 @@
             android:layout_height="40dp"
             android:layout_marginEnd="12dp"
             app:cardCornerRadius="20dp"
-            app:cardElevation="2dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@android:color/transparent"
             android:clickable="true"
             android:focusable="true"
             android:foreground="?android:attr/selectableItemBackground">
@@ -60,7 +61,7 @@
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="@android:color/white">
+                android:background="@drawable/button_white_stroke_black">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -85,7 +86,8 @@
             android:layout_height="40dp"
             android:layout_marginStart="12dp"
             app:cardCornerRadius="20dp"
-            app:cardElevation="2dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@android:color/transparent"
             android:clickable="true"
             android:focusable="true"
             android:foreground="?android:attr/selectableItemBackground">
@@ -93,7 +95,7 @@
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="#FF0000">
+                android:background="@drawable/button_red_stroke_black">
 
                 <TextView
                     android:layout_width="wrap_content"
