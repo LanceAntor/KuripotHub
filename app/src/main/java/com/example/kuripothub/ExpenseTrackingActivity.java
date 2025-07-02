@@ -164,7 +164,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         settingsIcon.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(ExpenseTrackingActivity.this, PreferenceActivity.class);
+                Intent intent = new Intent(ExpenseTrackingActivity.this, SettingsActivity.class);
                 startActivity(intent);
             }
         });

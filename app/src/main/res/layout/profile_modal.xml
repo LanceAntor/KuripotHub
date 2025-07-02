@@ -58,7 +58,7 @@
             <!-- Underline -->
             <View
                 android:layout_width="match_parent"
-                android:layout_height="1dp"
+                android:layout_height="3dp"
                 android:layout_marginTop="-10dp"
                 android:background="@android:color/black"
                 android:layout_marginBottom="16dp" />
@@ -82,10 +82,9 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:fontFamily="@font/russo_one"
-
                     android:gravity="center"
                     android:paddingVertical="10dp"
-                    android:text="Edit Profile"
+                    android:text="View Profile"
                     android:textColor="@android:color/black"
                     android:textSize="12sp"
                     android:textStyle="bold" />
