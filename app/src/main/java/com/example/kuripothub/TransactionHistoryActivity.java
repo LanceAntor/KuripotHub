@@ -135,6 +135,12 @@ public class TransactionHistoryActivity extends AppCompatActivity {
     private CardView createDayCard(int day) {
         CardView cardView = new CardView(this);
         
+        // Check if this day is today
+        Calendar today = Calendar.getInstance();
+        boolean isToday = (today.get(Calendar.YEAR) == currentCalendar.get(Calendar.YEAR) &&
+                          today.get(Calendar.MONTH) == currentCalendar.get(Calendar.MONTH) &&
+                          today.get(Calendar.DAY_OF_MONTH) == day);
+        
         // Set CardView properties
         GridLayout.LayoutParams cardParams = new GridLayout.LayoutParams();
         cardParams.width = 0;
@@ -142,15 +148,21 @@ public class TransactionHistoryActivity extends AppCompatActivity {
         cardParams.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
         cardParams.setMargins(16,16,16,16); // Increased from 4 to 8 for more spacing
         cardView.setLayoutParams(cardParams);
-        cardView.setCardBackgroundColor(Color.parseColor("#FFDD00"));
-        cardView.setRadius(50); // Make it more circular/rounded
-        cardView.setCardElevation(2);
+        
+        // Set background color - special for today
+        if (isToday) {
+            cardView.setBackground(getResources().getDrawable(R.drawable.calendar_today_background, null));
+        } else {
+            cardView.setCardBackgroundColor(Color.parseColor("#FFDD00"));
+            cardView.setRadius(50); // Make it more circular/rounded
+            cardView.setCardElevation(2);
+        }
         
         // Create TextView for day number
         TextView dayText = new TextView(this);
         dayText.setText(String.valueOf(day));
-        dayText.setTextSize(16); 
-        dayText.setTextColor(Color.BLACK);
+        dayText.setTextSize(16);
+        dayText.setTextColor(Color.BLACK); // White text for today
         dayText.setGravity(android.view.Gravity.CENTER);
         
         // Set font family
@@ -158,6 +170,11 @@ public class TransactionHistoryActivity extends AppCompatActivity {
             dayText.setTypeface(getResources().getFont(R.font.russo_one));
         } catch (Exception e) {
             // Fallback if font not available
+        }
+        
+        // Make today's text bold
+        if (isToday) {
+            dayText.setTypeface(dayText.getTypeface(), android.graphics.Typeface.BOLD);
         }
         
         // Add click listener to show day details

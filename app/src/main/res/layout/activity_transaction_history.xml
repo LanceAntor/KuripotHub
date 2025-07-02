@@ -44,7 +44,7 @@
         app:layout_constraintStart_toStartOf="@id/backButton"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <androidx.cardview.widget.CardView
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/selectMonthContainer"
         android:layout_width="130dp"
         android:layout_height="25dp"
@@ -52,6 +52,8 @@
         android:layout_marginRight="180dp"
         app:cardBackgroundColor="#FFDD00"
         app:cardCornerRadius="12.5dp"
+        app:strokeColor="@color/black"
+        app:strokeWidth="2dp"
         app:cardElevation="0dp"
         app:cardMaxElevation="0dp"
         app:cardUseCompatPadding="false"
@@ -71,7 +73,7 @@
             android:text="Select Month"
             android:textColor="@android:color/black"
             android:textSize="12sp" />
-    </androidx.cardview.widget.CardView>
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- Calendar Container -->
     <androidx.cardview.widget.CardView
