@@ -63,6 +63,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     // Flag to prevent multiple simultaneous expense loads
     private boolean isLoadingExpenses = false;
     
+    // Flag to track if this is the initial load (prevents duplicate loading in onResume)
+    private boolean isInitialLoad = true;
+    
     // Track which meal categories have been used today
     private boolean breakfastUsed = false;
     private boolean lunchUsed = false;
@@ -94,6 +97,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         
         // Load user data from Firebase
         loadUserData();
+        
+        // Add startup cleanup to ensure no duplicate UI elements from previous sessions
+        performStartupCleanup();
         
         // Initialize the bottom sheet
         setupCategoryBottomSheet();
@@ -508,6 +514,11 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         void onExpensesCalculated(double totalExpenses);
     }
     
+    private interface SyncCallback {
+        void onSyncSuccess(String tempId, String firebaseId);
+        void onSyncFailure(String tempId, Exception e);
+    }
+    
     private void addTransactionToView(String category, String amountStr) {
         addTransactionToView(category, amountStr, null);
     }
@@ -773,35 +784,59 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             String expenseId = (String) transactionItem.getTag();
             
             if (expenseId != null) {
-                // Delete from Firebase first
-                firebaseManager.deleteExpense(expenseId)
-                        .addOnSuccessListener(aVoid -> {
-                            Log.d(TAG, "Expense deleted from Firebase successfully");
-                            // Remove from cache as well
-                            removeExpenseFromCache(expenseId);
-                            // Update budget in Firebase after successful deletion
-                            updateBudgetInFirebase();
-                        })
-                        .addOnFailureListener(e -> {
-                            Log.w(TAG, "Error deleting expense from Firebase", e);
-                            
-                            // If we're offline, still remove from cache
-                            if (!isNetworkAvailable()) {
+                // Check if this is an offline expense (temp ID) or Firebase expense
+                if (expenseId.startsWith("temp_")) {
+                    // This is an offline expense, handle it differently
+                    Log.d(TAG, "Deleting offline expense: " + expenseId);
+                    // Remove from cache immediately
+                    removeExpenseFromCache(expenseId);
+                    // Update budget calculations for offline deletion
+                    Log.d(TAG, "Updating budget calculations for offline deletion");
+                    calculateAndSetAmountBudget();
+                    // No need to try Firebase for temp expenses
+                } else {
+                    // This is a Firebase expense, try to delete from Firebase first
+                    firebaseManager.deleteExpense(expenseId)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "Expense deleted from Firebase successfully");
+                                // Remove from cache as well
                                 removeExpenseFromCache(expenseId);
-                                Log.d(TAG, "Removed expense from cache while offline: " + expenseId);
-                                // Update budget locally
+                                // Update budget in Firebase after successful deletion
                                 updateBudgetInFirebase();
-                            } else {
-                                Toast.makeText(this, "Failed to delete expense from database", Toast.LENGTH_SHORT).show();
-                                // Revert available budget change if deletion failed
-                                double revertedAvailableBudget = getAvailableBudget() - amountValue;
-                                setAvailableBudget(revertedAvailableBudget);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.w(TAG, "Error deleting expense from Firebase", e);
                                 
-                                // Recalculate amount budget after reverting
-                                calculateAndSetAmountBudget();
-                                return;
-                            }
-                        });
+                                // If we're offline, still remove from cache and track as pending operation
+                                if (!isNetworkAvailable()) {
+                                    // Create expense object for the pending operation before removing from cache
+                                    Expense deletedExpense = new Expense(currentUserId, category, amountValue, "", 
+                                            new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date()));
+                                    deletedExpense.setId(expenseId);
+                                    
+                                    removeExpenseFromCache(expenseId);
+                                    // Track this delete as a pending operation for later sync
+                                    addPendingOperation(OP_TYPE_DELETE, expenseId, deletedExpense);
+                                    Log.d(TAG, "Expense delete saved offline and will sync when online: " + expenseId);
+                                    
+                                    // Update budget locally
+                                    updateBudgetInFirebase();
+                                    
+                                    // Immediately update budget calculations for offline deletion
+                                    Log.d(TAG, "Updating budget calculations for offline deletion");
+                                    calculateAndSetAmountBudget();
+                                } else {
+                                    Toast.makeText(this, "Failed to delete expense from database", Toast.LENGTH_SHORT).show();
+                                    // Revert available budget change if deletion failed
+                                    double revertedAvailableBudget = getAvailableBudget() - amountValue;
+                                    setAvailableBudget(revertedAvailableBudget);
+                                    
+                                    // Recalculate amount budget after reverting
+                                    calculateAndSetAmountBudget();
+                                    return;
+                                }
+                            });
+                }
             } else {
                 Log.w(TAG, "No expense ID found for transaction item, skipping Firebase deletion");
                 // Still update budget in Firebase for local transactions
@@ -900,32 +935,51 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 );
                 updatedExpense.setId(expenseId);
                 
-                // Update in Firebase
-                firebaseManager.updateExpense(expenseId, updatedExpense)
-                        .addOnSuccessListener(aVoid -> {
-                            Log.d(TAG, "Expense updated in Firebase successfully");
-                            // Update in cache as well
-                            updateExpenseInCache(expenseId, category, newAmountValue);
-                            // Update budget in Firebase after successful update
-                            updateBudgetInFirebase();
-                        })
-                        .addOnFailureListener(e -> {
-                            Log.w(TAG, "Error updating expense in Firebase", e);
-                            
-                            // If we're offline, still update cache
-                            if (!isNetworkAvailable()) {
+                // Check if this is an offline expense (temp ID) or Firebase expense
+                if (expenseId.startsWith("temp_")) {
+                    // This is an offline expense, handle it differently
+                    Log.d(TAG, "Updating offline expense: " + expenseId);
+                    // Update in cache immediately
+                    updateExpenseInCache(expenseId, category, newAmountValue);
+                    // Update budget calculations for offline edit
+                    Log.d(TAG, "Updating budget calculations for offline edit");
+                    calculateAndSetAmountBudget();
+                    // No need to try Firebase for temp expenses
+                } else {
+                    // This is a Firebase expense, try to update in Firebase first
+                    firebaseManager.updateExpense(expenseId, updatedExpense)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "Expense updated in Firebase successfully");
+                                // Update in cache as well
                                 updateExpenseInCache(expenseId, category, newAmountValue);
-                                Log.d(TAG, "Updated expense in cache while offline: " + expenseId);
-                                // Update budget locally
+                                // Update budget in Firebase after successful update
                                 updateBudgetInFirebase();
-                            } else {
-                                Toast.makeText(this, "Failed to update expense in database", Toast.LENGTH_SHORT).show();
-                                // Revert budget change if update failed
-                                currentBudget += difference;
-                                updateBudgetDisplay();
-                                return;
-                            }
-                        });
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.w(TAG, "Error updating expense in Firebase", e);
+                                
+                                // If we're offline, still update cache and track as pending operation
+                                if (!isNetworkAvailable()) {
+                                    updateExpenseInCache(expenseId, category, newAmountValue);
+                                    // Track this edit as a pending operation for later sync
+                                    addPendingOperation(OP_TYPE_EDIT, expenseId, updatedExpense);
+                                    Log.d(TAG, "Expense edit saved offline and will sync when online");
+                                    
+                                    // Update budget locally
+                                    updateBudgetInFirebase();
+                                    
+                                    // Immediately update budget calculations for offline edit
+                                    Log.d(TAG, "Updating budget calculations for offline edit");
+                                    calculateAndSetAmountBudget();
+                                } else {
+                                    Toast.makeText(this, "Failed to update expense in database", Toast.LENGTH_SHORT).show();
+                                    // Revert budget change if update failed
+                                    currentBudget += difference;
+                                    updateBudgetDisplay();
+                                    return;
+                                }
+                            });
+                }
             } else {
                 Log.w(TAG, "No expense ID found for transaction item, skipping Firebase update");
                 // Still update budget in Firebase for local transactions
@@ -1095,6 +1149,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             currentDate
         );
         
+        // Set timestamp for proper sorting
+        expense.setTimestamp(System.currentTimeMillis());
+        
         // Check if we're online or offline
         if (isNetworkAvailable()) {
             // Online: Try to save to Firebase first
@@ -1144,6 +1201,10 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 mostRecentTransaction.setTag(tempId);
                 Log.d(TAG, "Set temp ID tag on transaction view: " + tempId);
             }
+            
+            // Immediately update budget calculations to reflect offline expense
+            Log.d(TAG, "Updating budget calculations for offline expense");
+            calculateAndSetAmountBudget();
             
 //            Toast.makeText(this, "Saved offline - will sync when online", Toast.LENGTH_SHORT).show();
         }
@@ -1271,26 +1332,55 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         }
         
         isLoadingExpenses = true;
-        Log.d(TAG, "Starting to load today's expenses");
+        Log.d(TAG, "Starting to load today's expenses (isInitialLoad: " + isInitialLoad + ")");
+        debugCacheState("BEFORE_LOAD_EXPENSES");
         
-        // Clear existing transaction views IMMEDIATELY before any async operations
-        LinearLayout transactionsContainer = findViewById(R.id.transactionsContainer);
-        clearDynamicTransactions(transactionsContainer);
-        
-        // Always load from cache first for instant display
-        loadExpensesFromCache();
-        
-        // Then sync with Firebase if online
         if (isNetworkAvailable()) {
-            Log.d(TAG, "Online - syncing with Firebase");
+            Log.d(TAG, "Online - syncing with Firebase (will handle offline expenses)");
+            
+            // When online, save current transactions to cache before clearing UI to preserve any offline changes
+            // This is important in case sync fails - we don't want to lose offline expenses
+            saveCurrentTransactionsToCache();
+            
+            // Clear existing transaction views AFTER saving them to cache
+            LinearLayout transactionsContainer = findViewById(R.id.transactionsContainer);
+            clearDynamicTransactions(transactionsContainer);
+            
+            // When online, sync offline expenses first, then load everything from Firebase
+            // This prevents duplicates by making Firebase the single source of truth
             syncWithFirebase();
         } else {
-            Log.d(TAG, "Offline - using cached data only");
-            isLoadingExpenses = false;
+            Log.d(TAG, "Offline - preserving existing UI and ensuring all expenses are cached");
+            
+            // When offline, we need to be more careful about preserving the UI
+            // First save any current transactions to ensure they're in cache
+            saveCurrentTransactionsToCache();
+            
+            // Check if we already have expenses loaded in the UI
+            LinearLayout transactionsContainer = findViewById(R.id.transactionsContainer);
+            boolean hasExistingTransactions = hasTransactionItems(transactionsContainer);
+            
+            if (hasExistingTransactions) {
+                Log.d(TAG, "Offline mode: Found existing transactions in UI, preserving them");
+                // Don't clear UI if we already have transactions and we're offline
+                // Just ensure budget is updated and flag is reset
+                isLoadingExpenses = false;
+                recalculateAmountBudget();
+                return;
+            } else {
+                Log.d(TAG, "Offline mode: No existing transactions in UI, loading from cache");
+                // Only clear and reload if UI is empty - load from cache
+                clearDynamicTransactions(transactionsContainer);
+                debugCacheState("LOADING_OFFLINE_EXPENSES");
+                loadExpensesFromCache();
+                isLoadingExpenses = false;
+            }
         }
         
-        // Force recalculate amount budget after expenses are loaded
-        recalculateAmountBudget();
+        // Force recalculate amount budget after expenses are loaded (only for online mode)
+        if (isNetworkAvailable()) {
+            recalculateAmountBudget();
+        }
     }
     
     private void syncWithFirebase() {
@@ -1308,47 +1398,122 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
      * Sync offline expenses to Firebase first, then load all expenses from Firebase
      */
     private void syncOfflineExpensesToFirebaseAndThenLoadFromFirebase(String today) {
-        List<Expense> offlineExpenses = getOfflineExpensesFromCache();
+        debugCacheState("BEFORE_SYNC");
         
-        if (offlineExpenses.isEmpty()) {
-            // No offline expenses to sync, proceed with Firebase loading
-            loadExpensesFromFirebaseOnly(today);
+        List<Expense> offlineExpenses = getOfflineExpensesFromCache();
+        List<JSONObject> pendingOperations = getPendingOperations();
+        
+        int totalOperations = offlineExpenses.size() + pendingOperations.size();
+        
+        Log.d(TAG, "Found " + offlineExpenses.size() + " offline expenses and " + 
+              pendingOperations.size() + " pending operations to sync");
+        
+        if (totalOperations == 0) {
+            // No offline expenses or pending operations to sync
+            // Check if we're online or offline to determine how to load
+            if (isNetworkAvailable()) {
+                Log.d(TAG, "No operations to sync and online - loading from Firebase with fallback for any unsynced cached data");
+                loadExpensesFromFirebaseWithOfflineFallback(today);
+            } else {
+                Log.d(TAG, "No operations to sync and offline - loading from cache only");
+                loadExpensesFromCache();
+                isLoadingExpenses = false; // Reset flag since we're handling it directly
+            }
             return;
         }
         
-        Log.d(TAG, "Syncing " + offlineExpenses.size() + " offline expenses to Firebase first");
+        Log.d(TAG, "Syncing " + offlineExpenses.size() + " offline expenses and " + 
+              pendingOperations.size() + " pending operations to Firebase first");
         
         // Keep track of sync operations
-        final int totalOfflineExpenses = offlineExpenses.size();
         final AtomicInteger syncedCount = new AtomicInteger(0);
         final AtomicInteger failedCount = new AtomicInteger(0);
         
-        // Sync each offline expense
+        // Sync offline expenses (new additions)
         for (Expense offlineExpense : offlineExpenses) {
             syncSingleOfflineExpenseWithCallback(offlineExpense, new SyncCallback() {
                 @Override
                 public void onSyncSuccess(String tempId, String firebaseId) {
                     int synced = syncedCount.incrementAndGet();
-                    Log.d(TAG, "Synced " + synced + "/" + totalOfflineExpenses + " offline expenses");
+                    Log.d(TAG, "Synced " + synced + "/" + totalOperations + " operations (add)");
                     
                     // Check if all sync operations are complete
-                    if (synced + failedCount.get() == totalOfflineExpenses) {
-                        // All sync operations completed, now load from Firebase
-                        Log.d(TAG, "All offline expenses processed. Loading from Firebase...");
-                        loadExpensesFromFirebaseOnly(today);
+                    if (synced + failedCount.get() == totalOperations) {
+                        // All sync operations completed
+                        if (failedCount.get() == 0) {
+                            // All synced successfully, clear pending operations and load from Firebase
+                            Log.d(TAG, "All offline operations synced successfully. Clearing pending operations and loading from Firebase...");
+                            clearPendingOperations();
+                            
+                            // Add a small delay to ensure all cache removal operations complete
+                            // This prevents race conditions where temp expenses might still be in cache
+                            new android.os.Handler().postDelayed(() -> {
+                                loadExpensesFromFirebaseOnly(today);
+                            }, 100); // 100ms delay
+                        } else {
+                            // Some failed, DON'T clear pending operations, use fallback loading
+                            Log.d(TAG, "Some offline operations failed. Loading from Firebase while preserving failed operations...");
+                            loadExpensesFromFirebaseWithOfflineFallback(today);
+                        }
                     }
                 }
                 
                 @Override
                 public void onSyncFailure(String tempId, Exception e) {
                     int failed = failedCount.incrementAndGet();
-                    Log.w(TAG, "Failed to sync offline expense " + tempId + ": " + failed + "/" + totalOfflineExpenses, e);
+                    Log.w(TAG, "Failed to sync offline expense " + tempId + ": " + failed + "/" + totalOperations, e);
                     
                     // Check if all sync operations are complete
-                    if (syncedCount.get() + failed == totalOfflineExpenses) {
-                        // All sync operations completed, now load from Firebase
-                        Log.d(TAG, "All offline expenses processed (some failed). Loading from Firebase...");
-                        loadExpensesFromFirebaseOnly(today);
+                    if (syncedCount.get() + failed == totalOperations) {
+                        // All sync operations completed (some failed), DON'T clear pending operations yet
+                        // Load from Firebase but keep offline expenses that failed to sync
+                        Log.d(TAG, "All offline operations processed (some failed). Loading from Firebase while preserving failed syncs...");
+                        loadExpensesFromFirebaseWithOfflineFallback(today);
+                    }
+                }
+            });
+        }
+        
+        // Sync pending operations (edits and deletes)
+        for (JSONObject operation : pendingOperations) {
+            syncPendingOperation(operation, new SyncCallback() {
+                @Override
+                public void onSyncSuccess(String expenseId, String firebaseId) {
+                    int synced = syncedCount.incrementAndGet();
+                    Log.d(TAG, "Synced " + synced + "/" + totalOperations + " operations (pending)");
+                    
+                    // Check if all sync operations are complete
+                    if (synced + failedCount.get() == totalOperations) {
+                        // All sync operations completed
+                        if (failedCount.get() == 0) {
+                            // All synced successfully, clear pending operations and load from Firebase
+                            Log.d(TAG, "All offline operations synced successfully. Clearing pending operations and loading from Firebase...");
+                            clearPendingOperations();
+                            
+                            // Add a small delay to ensure all cache removal operations complete
+                            // This prevents race conditions where temp expenses might still be in cache
+                            new android.os.Handler().postDelayed(() -> {
+                                loadExpensesFromFirebaseOnly(today);
+                            }, 100); // 100ms delay
+                        } else {
+                            // Some failed, DON'T clear pending operations, use fallback loading
+                            Log.d(TAG, "Some offline operations failed. Loading from Firebase while preserving failed operations...");
+                            loadExpensesFromFirebaseWithOfflineFallback(today);
+                        }
+                    }
+                }
+                
+                @Override
+                public void onSyncFailure(String expenseId, Exception e) {
+                    int failed = failedCount.incrementAndGet();
+                    Log.w(TAG, "Failed to sync pending operation " + expenseId + ": " + failed + "/" + totalOperations, e);
+                    
+                    // Check if all sync operations are complete
+                    if (syncedCount.get() + failed == totalOperations) {
+                        // Some operations failed, DON'T clear pending operations yet
+                        // Load from Firebase but preserve failed operations for retry
+                        Log.d(TAG, "All offline operations processed (some failed). Loading from Firebase while preserving failed operations...");
+                        loadExpensesFromFirebaseWithOfflineFallback(today);
                     }
                 }
             });
@@ -1357,6 +1522,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     
     /**
      * Load expenses only from Firebase (no offline merging)
+     * This method is called after offline expenses have been synced to Firebase
      */
     private void loadExpensesFromFirebaseOnly(String today) {
         // Try the simple date-based query first (no orderBy to avoid index issues)
@@ -1371,7 +1537,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         return;
                     }
                     
-                    // Process expenses from Firebase only (no offline merging)
+                    // Process expenses from Firebase only (no cache merging to prevent duplicates)
                     List<Expense> firebaseExpenses = new ArrayList<>();
                     for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
                         Expense expense = document.toObject(Expense.class);
@@ -1387,10 +1553,14 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     // Sort by timestamp (newest first)
                     firebaseExpenses.sort((e1, e2) -> Long.compare(e2.getTimestamp(), e1.getTimestamp()));
                     
-                    // Update cache with Firebase data only (offline expenses already synced)
+                    // IMPORTANT: Replace cache entirely with Firebase data to prevent duplicates
+                    // This removes any offline expenses that were successfully synced
                     cacheExpenses(firebaseExpenses);
                     
-                    // Clear and reload UI with Firebase data
+                    // Additional cleanup to ensure no temp expenses remain
+                    cleanupCacheAfterSync();
+                    
+                    // Clear UI again and reload with clean Firebase data (no duplicates)
                     LinearLayout transactionsContainer = findViewById(R.id.transactionsContainer);
                     clearDynamicTransactions(transactionsContainer);
                     
@@ -1399,7 +1569,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         addTransactionToView(expense.getCategory(), String.format("%.2f", expense.getAmount()), expense.getId());
                     }
                     
-                    Log.d(TAG, "Finished loading " + firebaseExpenses.size() + " expenses from Firebase");
+                    Log.d(TAG, "Finished loading " + firebaseExpenses.size() + " expenses from Firebase (cache updated)");
                     isLoadingExpenses = false; // Reset flag
                     
                     // Recalculate amount budget after Firebase sync
@@ -1407,9 +1577,10 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     Log.w(TAG, "Error syncing with Firebase", e);
-                    // Firebase sync failed, but cache data is already loaded
+                    // Firebase sync failed, load from cache as fallback
+                    Log.d(TAG, "Firebase sync failed, falling back to cached data");
+                    loadExpensesFromCache();
                     isLoadingExpenses = false;
-                    Log.d(TAG, "Firebase sync failed, continuing with cached data");
                 });
     }
     
@@ -1441,10 +1612,13 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     // Sort by timestamp (newest first)
                     firebaseExpenses.sort((e1, e2) -> Long.compare(e2.getTimestamp(), e1.getTimestamp()));
                     
-                    // Update cache with Firebase data only (offline expenses already synced)
+                    // IMPORTANT: Replace cache entirely with Firebase data to prevent duplicates
                     cacheExpenses(firebaseExpenses);
                     
-                    // Clear and reload UI with Firebase data
+                    // Additional cleanup to ensure no temp expenses remain
+                    cleanupCacheAfterSync();
+                    
+                    // Clear UI again and reload with clean Firebase data
                     LinearLayout transactionsContainer = findViewById(R.id.transactionsContainer);
                     clearDynamicTransactions(transactionsContainer);
                     
@@ -1453,7 +1627,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         addTransactionToView(expense.getCategory(), String.format("%.2f", expense.getAmount()), expense.getId());
                     }
                     
-                    Log.d(TAG, "Found " + todayCount + " Firebase expenses using alternative sync method");
+                    Log.d(TAG, "Found " + todayCount + " Firebase expenses using alternative sync method (cache updated)");
                     isLoadingExpenses = false; // Reset flag
                     
                     // Recalculate amount budget after alternative sync
@@ -1461,7 +1635,95 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     Log.w(TAG, "Error syncing with alternative method", e);
+                    // Firebase sync failed completely, load from cache as fallback
+                    loadExpensesFromCache();
                     isLoadingExpenses = false; // Reset flag
+                });
+    }
+    
+    /**
+     * Load expenses from Firebase but include unsynced offline expenses that failed to sync
+     * This ensures that offline expenses are not lost even if sync fails
+     */
+    private void loadExpensesFromFirebaseWithOfflineFallback(String today) {
+        Log.d(TAG, "Loading from Firebase with offline fallback for failed syncs");
+        
+        // Check if we're offline first - if so, just load from cache directly
+        if (!isNetworkAvailable()) {
+            Log.d(TAG, "Offline detected - loading from cache directly instead of trying Firebase");
+            loadExpensesFromCache();
+            isLoadingExpenses = false;
+            return;
+        }
+        
+        // Load Firebase expenses first (only when online)
+        firebaseManager.getUserExpensesByDateSimple(currentUserId, today)
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    Log.d(TAG, "Firebase fallback returned " + queryDocumentSnapshots.size() + " expenses");
+                    
+                    // Process expenses from Firebase
+                    List<Expense> firebaseExpenses = new ArrayList<>();
+                    for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
+                        Expense expense = document.toObject(Expense.class);
+                        if (expense != null) {
+                            expense.setId(document.getId()); // Set the document ID
+                            firebaseExpenses.add(expense);
+                            Log.d(TAG, "Firebase expense: " + expense.getCategory() + " - P" + expense.getAmount());
+                        }
+                    }
+                    
+                    // Add unsynced offline expenses that still need to be synced
+                    List<Expense> offlineExpenses = getOfflineExpensesFromCache();
+                    for (Expense offlineExpense : offlineExpenses) {
+                        // Only add offline expenses that have temp IDs (haven't been synced yet)
+                        if (offlineExpense.getId() != null && offlineExpense.getId().startsWith("temp_")) {
+                            // Additional check: make sure this expense isn't already in Firebase data
+                            // by checking for duplicates based on category, amount, date, and timestamp
+                            boolean isDuplicate = false;
+                            for (Expense firebaseExpense : firebaseExpenses) {
+                                if (firebaseExpense.getCategory().equals(offlineExpense.getCategory()) &&
+                                    Math.abs(firebaseExpense.getAmount() - offlineExpense.getAmount()) < 0.01 &&
+                                    firebaseExpense.getDate().equals(offlineExpense.getDate()) &&
+                                    Math.abs(firebaseExpense.getTimestamp() - offlineExpense.getTimestamp()) < 5000) { // 5 second tolerance
+                                    isDuplicate = true;
+                                    Log.d(TAG, "Skipping offline expense - already synced to Firebase: " + offlineExpense.getId());
+                                    break;
+                                }
+                            }
+                            
+                            if (!isDuplicate) {
+                                firebaseExpenses.add(offlineExpense);
+                                Log.d(TAG, "Including unsynced offline expense: " + offlineExpense.getCategory() + " - P" + offlineExpense.getAmount());
+                            }
+                        }
+                    }
+                    
+                    // Sort by timestamp (newest first)
+                    firebaseExpenses.sort((e1, e2) -> Long.compare(e2.getTimestamp(), e1.getTimestamp()));
+                    
+                    // Update cache with combined data
+                    cacheExpenses(firebaseExpenses);
+                    
+                    // Clear UI and reload with combined Firebase + unsynced offline data
+                    LinearLayout transactionsContainer = findViewById(R.id.transactionsContainer);
+                    clearDynamicTransactions(transactionsContainer);
+                    
+                    // Add sorted expenses to UI
+                    for (Expense expense : firebaseExpenses) {
+                        addTransactionToView(expense.getCategory(), String.format("%.2f", expense.getAmount()), expense.getId());
+                    }
+                    
+                    Log.d(TAG, "Finished loading " + firebaseExpenses.size() + " expenses with offline fallback");
+                    isLoadingExpenses = false; // Reset flag
+                    
+                    // Recalculate amount budget
+                    recalculateAmountBudget();
+                })
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "Firebase fallback also failed, using cache only", e);
+                    // If Firebase completely fails, fall back to cache
+                    loadExpensesFromCache();
+                    isLoadingExpenses = false;
                 });
     }
     
@@ -1486,9 +1748,19 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        
+        // Skip the initial onResume call that happens right after onCreate
+        // This prevents duplicate loading when the app first starts
+        if (isInitialLoad) {
+            Log.d(TAG, "Skipping initial onResume to prevent duplicate loading");
+            isInitialLoad = false;
+            return;
+        }
+        
         // Only refresh if we're not already loading expenses
         if (currentUserId != null && !isLoadingExpenses) {
             Log.d(TAG, "Activity resumed, refreshing today's expenses");
+            debugCacheState("ON_RESUME_START");
 
             // Add a small delay to prevent race conditions when coming back online
             new android.os.Handler().postDelayed(() -> {
@@ -1497,12 +1769,109 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     resetDailyCategoryStates();
                     // Recalculate available budget if new period
                     checkAndResetAvailableBudgetIfNewPeriod();
+                    
+                    // DO NOT clean up cache here - let the sync process handle cleanup
+                    // Cleaning up here would remove offline expenses before they sync
+                    Log.d(TAG, "Preserving all cached expenses for sync process");
+                    
+                    // Check network status before deciding how to load
+                    if (isNetworkAvailable()) {
+                        Log.d(TAG, "Network available on resume - will attempt sync");
+                    } else {
+                        Log.d(TAG, "No network on resume - will load from cache only");
+                    }
+                    
                     loadTodaysExpenses();
                 }
-            }, 100); // 100ms delay
+            }, 200); // 200ms delay to ensure network state is stable
 
         } else if (isLoadingExpenses) {
             Log.d(TAG, "Activity resumed but expenses are already loading, skipping");
+        }
+    }
+    
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Always save current state when pausing to ensure all expenses are preserved
+        // This is especially important for offline expenses that haven't synced yet
+        if (currentUserId != null) {
+            Log.d(TAG, "Activity pausing - ensuring all expenses are cached for preservation");
+            debugCacheState("BEFORE_ON_PAUSE");
+            // Force save any pending transactions that might not be cached yet
+            saveCurrentTransactionsToCache();
+            debugCacheState("AFTER_ON_PAUSE");
+        }
+    }
+    
+    /**
+     * Save current transaction items to cache to ensure they persist across activity transitions
+     */
+    private void saveCurrentTransactionsToCache() {
+        if (currentUserId == null) {
+            Log.w(TAG, "Cannot save transactions to cache: currentUserId is null");
+            return;
+        }
+        
+        LinearLayout container = findViewById(R.id.transactionsContainer);
+        List<Expense> currentExpenses = new ArrayList<>();
+        
+        Log.d(TAG, "Saving current transactions to cache - found " + container.getChildCount() + " child views");
+        
+        // Extract expenses from current transaction items
+        for (int i = 0; i < container.getChildCount(); i++) {
+            View child = container.getChildAt(i);
+            TextView categoryName = child.findViewById(R.id.categoryName);
+            TextView transactionAmount = child.findViewById(R.id.transactionAmount);
+            
+            if (categoryName != null && transactionAmount != null) {
+                String category = categoryName.getText().toString();
+                String amountText = transactionAmount.getText().toString();
+                String expenseId = (String) child.getTag();
+                
+                Log.d(TAG, "Processing UI transaction: " + category + " - " + amountText + " (ID: " + expenseId + ")");
+                
+                if (expenseId != null) {
+                    try {
+                        // Parse amount (remove -P and formatting)
+                        double amount = Double.parseDouble(amountText.replaceAll("[^\\d.]", ""));
+                        
+                        // Create expense object
+                        Expense expense = new Expense();
+                        expense.setId(expenseId);
+                        expense.setCategory(category);
+                        expense.setAmount(amount);
+                        expense.setUserId(currentUserId);
+                        expense.setDate(new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date()));
+                        
+                        // IMPORTANT: Try to preserve original timestamp from cache if it exists
+                        // This prevents timestamp conflicts when saving UI transactions to cache
+                        long originalTimestamp = getTimestampFromCache(expenseId);
+                        if (originalTimestamp > 0) {
+                            expense.setTimestamp(originalTimestamp);
+                            Log.d(TAG, "Preserved original timestamp for " + expenseId + ": " + originalTimestamp);
+                        } else {
+                            expense.setTimestamp(System.currentTimeMillis());
+                            Log.d(TAG, "Using current timestamp for " + expenseId);
+                        }
+                        
+                        currentExpenses.add(expense);
+                        Log.d(TAG, "Preserved transaction: " + category + " - P" + amount + " (ID: " + expenseId + ")");
+                    } catch (NumberFormatException e) {
+                        Log.w(TAG, "Failed to parse amount for transaction: " + amountText, e);
+                    }
+                } else {
+                    Log.w(TAG, "Transaction has no ID tag: " + category + " - " + amountText);
+                }
+            }
+        }
+        
+        if (!currentExpenses.isEmpty()) {
+            // Save to cache
+            cacheExpenses(currentExpenses);
+            Log.d(TAG, "Successfully cached " + currentExpenses.size() + " transactions for preservation");
+        } else {
+            Log.d(TAG, "No transactions to cache");
         }
     }
     
@@ -1517,7 +1886,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
                     String today = dateFormat.format(new Date());
                     
-                    int todayCount = 0;
+                    int todayCount =  0;
                     for (DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
                         Expense expense = document.toObject(Expense.class);
                         if (expense != null) {
@@ -1611,9 +1980,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             othersOption.setEnabled(true);
             othersOption.setAlpha(1.0f);
         }
-    }
-    
-    private void resetDailyCategoryStates() {
+    }    private void resetDailyCategoryStates() {
         breakfastUsed = false;
         lunchUsed = false;
         dinnerUsed = false;
@@ -1688,6 +2055,11 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
     private static final String CACHE_PREFS = "expense_cache";
     private static final String CACHE_KEY_PREFIX = "expenses_";
     private static final String CACHE_TIMESTAMP_PREFIX = "cache_time_";
+    private static final String PENDING_OPERATIONS_KEY = "pending_operations_";
+    
+    // Pending operation types
+    private static final String OP_TYPE_EDIT = "edit";
+    private static final String OP_TYPE_DELETE = "delete";
     
     /**
      * Load expenses from local cache when offline
@@ -1698,13 +2070,17 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             return;
         }
         
+        Log.d(TAG, "Loading expenses from cache for offline/fallback usage");
+        debugCacheState("LOAD_FROM_CACHE_START");
+        
         SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
         String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
         String cacheKey = CACHE_KEY_PREFIX + currentUserId + "_" + today;
         
         String cachedJson = prefs.getString(cacheKey, null);
         if (cachedJson != null) {
-            Log.d(TAG, "Loading expenses from cache");
+            Log.d(TAG, "Loading expenses from cache - Cache key: " + cacheKey);
+            Log.d(TAG, "Cached JSON data: " + cachedJson.substring(0, Math.min(100, cachedJson.length())) + "...");
             
             try {
                 // Parse cached expenses
@@ -1726,17 +2102,33 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 // Sort by timestamp (newest first)
                 cachedExpenses.sort((e1, e2) -> Long.compare(e2.getTimestamp(), e1.getTimestamp()));
                 
-                // Add to UI
+                // Add to UI with proper ID tags for edit/delete functionality
                 for (Expense expense : cachedExpenses) {
                     addTransactionToView(expense.getCategory(), String.format("%.2f", expense.getAmount()), expense.getId());
+                    Log.d(TAG, "Restored cached expense: " + expense.getCategory() + " - P" + expense.getAmount() + " (ID: " + expense.getId() + ")");
                 }
                 
-                Log.d(TAG, "Loaded " + cachedExpenses.size() + " expenses from cache");
+                Log.d(TAG, "Loaded " + cachedExpenses.size() + " expenses from cache successfully");
+                debugCacheState("LOAD_FROM_CACHE_SUCCESS");
+                
+                // Update budget calculations to reflect cached expenses when offline
+                Log.d(TAG, "Updating budget calculations for cached expenses (offline mode)");
+                calculateAndSetAmountBudget();
+                
+                // Check existing categories to set their states correctly
+                checkExistingCategoriesForToday();
+                
             } catch (JSONException e) {
                 Log.e(TAG, "Error parsing cached expenses", e);
+                debugCacheState("LOAD_FROM_CACHE_ERROR");
             }
         } else {
-            Log.d(TAG, "No cached expenses found for today");
+            Log.d(TAG, "No cached expenses found for today - cache key: " + cacheKey);
+            debugCacheState("LOAD_FROM_CACHE_EMPTY");
+            
+            // Still update budget calculations even if no cached expenses
+            Log.d(TAG, "Updating budget calculations (no cached expenses)");
+            calculateAndSetAmountBudget();
         }
     }
     
@@ -1745,6 +2137,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
      */
     private void cacheExpenses(List<Expense> expenses) {
         if (currentUserId == null || expenses == null) {
+            Log.w(TAG, "Cannot cache expenses: currentUserId=" + currentUserId + ", expenses=" + expenses);
             return;
         }
         
@@ -1752,6 +2145,8 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
         String cacheKey = CACHE_KEY_PREFIX + currentUserId + "_" + today;
         String timestampKey = CACHE_TIMESTAMP_PREFIX + currentUserId + "_" + today;
+        
+        Log.d(TAG, "Caching " + expenses.size() + " expenses with key: " + cacheKey);
         
         try {
             JSONArray expenseArray = new JSONArray();
@@ -1764,14 +2159,15 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                 expenseJson.put("timestamp", expense.getTimestamp());
                 expenseJson.put("userId", expense.getUserId());
                 expenseArray.put(expenseJson);
+                Log.d(TAG, "Caching expense: " + expense.getCategory() + " - P" + expense.getAmount() + " (ID: " + expense.getId() + ")");
             }
             
-            prefs.edit()
+            boolean success = prefs.edit()
                 .putString(cacheKey, expenseArray.toString())
                 .putLong(timestampKey, System.currentTimeMillis())
-                .apply();
+                .commit(); // Use commit() instead of apply() to ensure immediate write
                 
-            Log.d(TAG, "Cached " + expenses.size() + " expenses for offline access");
+            Log.d(TAG, "Cache write " + (success ? "successful" : "failed") + " for " + expenses.size() + " expenses");
         } catch (JSONException e) {
             Log.e(TAG, "Error caching expenses", e);
         }
@@ -1782,8 +2178,11 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
      */
     private void addExpenseToCache(Expense expense) {
         if (currentUserId == null || expense == null) {
+            Log.w(TAG, "Cannot add expense to cache: currentUserId=" + currentUserId + ", expense=" + expense);
             return;
         }
+        
+        Log.d(TAG, "Adding expense to cache: " + expense.getCategory() + " - P" + expense.getAmount() + " (ID: " + expense.getId() + ")");
         
         // Load existing cache
         SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
@@ -1796,6 +2195,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         if (cachedJson != null) {
             try {
                 JSONArray cachedArray = new JSONArray(cachedJson);
+                Log.d(TAG, "Found existing cache with " + cachedArray.length() + " expenses");
                 for (int i = 0; i < cachedArray.length(); i++) {
                     JSONObject expenseJson = cachedArray.getJSONObject(i);
                     Expense cachedExpense = new Expense();
@@ -1810,13 +2210,17 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             } catch (JSONException e) {
                 Log.e(TAG, "Error parsing existing cache", e);
             }
+        } else {
+            Log.d(TAG, "No existing cache found, creating new cache");
         }
         
         // Add new expense
         cachedExpenses.add(expense);
+        Log.d(TAG, "Cache now contains " + cachedExpenses.size() + " expenses total");
         
         // Save updated cache
         cacheExpenses(cachedExpenses);
+        Log.d(TAG, "Successfully added expense to cache");
     }
     
     /**
@@ -1921,6 +2325,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         List<Expense> offlineExpenses = new ArrayList<>();
         
         if (currentUserId == null) {
+            Log.w(TAG, "Cannot get offline expenses: currentUserId is null");
             return offlineExpenses;
         }
         
@@ -1928,10 +2333,15 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
         String cacheKey = CACHE_KEY_PREFIX + currentUserId + "_" + today;
         
+        Log.d(TAG, "Looking for offline expenses in cache with key: " + cacheKey);
+        
         String cachedJson = prefs.getString(cacheKey, null);
         if (cachedJson != null) {
+            Log.d(TAG, "Found cached data: " + cachedJson.substring(0, Math.min(200, cachedJson.length())) + "...");
             try {
                 JSONArray cachedArray = new JSONArray(cachedJson);
+                
+                Log.d(TAG, "Parsing " + cachedArray.length() + " cached expenses to find offline ones");
                 
                 for (int i = 0; i < cachedArray.length(); i++) {
                     JSONObject expenseJson = cachedArray.getJSONObject(i);
@@ -1947,13 +2357,19 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         expense.setTimestamp(expenseJson.getLong("timestamp"));
                         expense.setUserId(expenseJson.getString("userId"));
                         offlineExpenses.add(expense);
+                        Log.d(TAG, "Found offline expense: " + expense.getCategory() + " - P" + expense.getAmount() + " (ID: " + expenseId + ")");
+                    } else {
+                        Log.d(TAG, "Skipping synced expense: " + expenseId);
                     }
                 }
             } catch (JSONException e) {
                 Log.e(TAG, "Error parsing cached expenses for offline sync", e);
             }
+        } else {
+            Log.d(TAG, "No cached data found for key: " + cacheKey);
         }
         
+        Log.d(TAG, "Returning " + offlineExpenses.size() + " offline expenses from cache");
         return offlineExpenses;
     }
     
@@ -1987,7 +2403,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     updateTransactionItemTag(tempId, newFirebaseId);
                     
                     // Remove the offline expense from cache (don't replace, just remove since we'll reload from Firebase)
-                    removeOfflineExpenseFromCache(tempId);
+                    removeExpenseFromCache(tempId);
                     
                     // Notify callback of success
                     callback.onSyncSuccess(tempId, newFirebaseId);
@@ -2003,69 +2419,61 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
        }
     
     /**
-     * Remove an offline expense from cache by its temp ID
+     * Sync a pending operation (edit or delete) to Firebase
      */
-    private void removeOfflineExpenseFromCache(String tempId) {
-        if (currentUserId == null) {
-            return;
-        }
-        
-        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
-        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
-        String cacheKey = CACHE_KEY_PREFIX + currentUserId + "_" + today;
-        
-        String cachedJson = prefs.getString(cacheKey, null);
-        if (cachedJson != null) {
-            try {
-                JSONArray cachedArray = new JSONArray(cachedJson);
-                List<Expense> updatedExpenses = new ArrayList<>();
+    private void syncPendingOperation(JSONObject operation, SyncCallback callback) {
+        try {
+            String operationType = operation.getString("type");
+            String expenseId = operation.getString("expenseId");
+            
+            Log.d(TAG, "Syncing pending " + operationType + " operation for expense: " + expenseId);
+            
+            if (OP_TYPE_EDIT.equals(operationType)) {
+                // Handle edit operation
+                JSONObject expenseDataJson = operation.getJSONObject("expenseData");
                 
-                for (int i = 0; i < cachedArray.length(); i++) {
-                    JSONObject expenseJson = cachedArray.getJSONObject(i);
-                    String expenseId = expenseJson.getString("id");
-                    
-                    
-                    // Skip the temp expense (remove it)
-                    if (!expenseId.equals(tempId)) {
-                        Expense expense = new Expense();
-                        expense.setId(expenseId);
-                                               expense.setCategory(expenseJson.getString("category"));
-                        expense.setAmount(expenseJson.getDouble("amount"));
-                        expense.setDate(expenseJson.getString("date"));
-                        expense.setTimestamp(expenseJson.getLong("timestamp"));
-                        expense.setUserId(expenseJson.getString("userId"));
-                        updatedExpenses.add(expense);
-                    }
-                }
+                Expense updatedExpense = new Expense(
+                    expenseDataJson.getString("userId"),
+                    expenseDataJson.getString("category"),
+                    expenseDataJson.getDouble("amount"),
+                    "", // Description
+                    expenseDataJson.getString("date")
+                );
+                updatedExpense.setId(expenseId);
+                updatedExpense.setTimestamp(expenseDataJson.getLong("timestamp"));
                 
-                // Save updated cache without the temp expense
-                cacheExpenses(updatedExpenses);
-                Log.d(TAG, "Removed offline expense " + tempId + " from cache");
-            } catch (JSONException e) {
-                Log.e(TAG, "Error removing offline expense from cache", e);
+                firebaseManager.updateExpense(expenseId, updatedExpense)
+                        .addOnSuccessListener(aVoid -> {
+                            Log.d(TAG, "Pending edit synced successfully: " + expenseId);
+                            removePendingOperation(OP_TYPE_EDIT, expenseId);
+                            callback.onSyncSuccess(expenseId, expenseId);
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.w(TAG, "Failed to sync pending edit: " + expenseId, e);
+                            callback.onSyncFailure(expenseId, e);
+                        });
+                        
+            } else if (OP_TYPE_DELETE.equals(operationType)) {
+                // Handle delete operation
+                firebaseManager.deleteExpense(expenseId)
+                        .addOnSuccessListener(aVoid -> {
+                            Log.d(TAG, "Pending delete synced successfully: " + expenseId);
+                            removePendingOperation(OP_TYPE_DELETE, expenseId);
+                            callback.onSyncSuccess(expenseId, expenseId);
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.w(TAG, "Failed to sync pending delete: " + expenseId, e);
+                            callback.onSyncFailure(expenseId, e);
+                        });
+            } else {
+                Log.w(TAG, "Unknown pending operation type: " + operationType);
+                callback.onSyncFailure(expenseId, new Exception("Unknown operation type"));
             }
+            
+        } catch (JSONException e) {
+            Log.e(TAG, "Error parsing pending operation", e);
+            callback.onSyncFailure("unknown", e);
         }
-    }
-    
-    /**
-     * Update transaction item tag from temp ID to real Firebase ID
-     */
-    private void updateTransactionItemTag(String oldTempId, String newFirebaseId) {
-        LinearLayout container = findViewById(R.id.transactionsContainer);
-        for (int i = 0; i < container.getChildCount(); i++) {
-            View child = container.getChildAt(i);
-            if (oldTempId.equals(child.getTag())) {
-                child.setTag(newFirebaseId);
-                Log.d(TAG, "Updated transaction item tag from " + oldTempId + " to " + newFirebaseId);
-                break;
-            }
-        }
-    }
-    
-    // Callback interface for synchronization operations
-    private interface SyncCallback {
-        void onSyncSuccess(String tempId, String firebaseId);
-        void onSyncFailure(String tempId, Exception e);
     }
 
     private String getCurrentPeriodKey() {
@@ -2138,6 +2546,20 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             return;
         }
         
+        // Check if we're online or offline to determine how to calculate expenses
+        if (isNetworkAvailable()) {
+            // Online: Get expenses from Firebase + merge with any cached offline expenses
+            calculateWeeklyExpensesOnline(callback);
+        } else {
+            // Offline: Use only cached expenses
+            calculateWeeklyExpensesOffline(callback);
+        }
+    }
+    
+    /**
+     * Calculate weekly expenses when online (Firebase + cached offline expenses)
+     */
+    private void calculateWeeklyExpensesOnline(ExpenseCalculationCallback callback) {
         // Get all expenses for the user using the same approach as ExpenseSummaryActivity
         com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
         
@@ -2154,34 +2576,123 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         }
                     }
                     
-                    Log.d(TAG, "Loaded " + allExpenses.size() + " total expenses for weekly calculation");
+                    // Add any cached offline expenses that haven't been synced yet
+                    List<Expense> offlineExpenses = getOfflineExpensesFromCache();
+                    allExpenses.addAll(offlineExpenses);
                     
-                    // Calculate the current weekly period based on user's preferred start day (same as ExpenseSummaryActivity)
-                    String weekStartDate = getCurrentWeekStartDate();
-                    String weekEndDate = getCurrentWeekEndDate();
+                    Log.d(TAG, "Loaded " + (allExpenses.size() - offlineExpenses.size()) + " Firebase expenses + " 
+                          + offlineExpenses.size() + " offline expenses for weekly calculation");
                     
-                    Log.d(TAG, "Current week period: " + weekStartDate + " to " + weekEndDate);
-                    
-                    // Filter expenses to only include those in the current week (same as ExpenseSummaryActivity)
-                    double totalWeeklyExpenses = 0.0;
-                    int weeklyExpenseCount = 0;
-                    
-                    for (Expense expense : allExpenses) {
-                        String expenseDate = expense.getDate();
-                        if (expenseDate != null && isDateInCurrentWeek(expenseDate, weekStartDate, weekEndDate)) {
-                            totalWeeklyExpenses += expense.getAmount();
-                            weeklyExpenseCount++;
-                            Log.d(TAG, "Weekly expense included: " + expense.getCategory() + " - P" + expense.getAmount() + " on " + expenseDate);
-                        }
-                    }
-                    
-                    Log.d(TAG, "Total weekly expenses: P" + totalWeeklyExpenses + " from " + weeklyExpenseCount + " expenses");
-                    callback.onExpensesCalculated(totalWeeklyExpenses);
+                    // Calculate weekly total
+                    double weeklyTotal = calculateWeeklyTotalFromExpenses(allExpenses);
+                    callback.onExpensesCalculated(weeklyTotal);
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error loading expenses for weekly calculation", e);
-                    callback.onExpensesCalculated(0.0);
+                    Log.e(TAG, "Error loading expenses for weekly calculation, falling back to offline", e);
+                    // Fallback to offline calculation if Firebase fails
+                    calculateWeeklyExpensesOffline(callback);
                 });
+    }
+    
+    /**
+     * Calculate weekly expenses when offline (cached expenses only)
+     */
+    private void calculateWeeklyExpensesOffline(ExpenseCalculationCallback callback) {
+        Log.d(TAG, "Calculating weekly expenses offline using cached data");
+        
+        // Get all cached expenses for the current week period
+        List<Expense> allCachedExpenses = getAllCachedExpensesForWeek();
+        
+        Log.d(TAG, "Loaded " + allCachedExpenses.size() + " cached expenses for weekly calculation");
+        
+        // Calculate weekly total
+        double weeklyTotal = calculateWeeklyTotalFromExpenses(allCachedExpenses);
+        callback.onExpensesCalculated(weeklyTotal);
+    }
+    
+    /**
+     * Calculate weekly total from a list of expenses
+     */
+    private double calculateWeeklyTotalFromExpenses(List<Expense> allExpenses) {
+        // Calculate the current weekly period based on user's preferred start day (same as ExpenseSummaryActivity)
+        String weekStartDate = getCurrentWeekStartDate();
+        String weekEndDate = getCurrentWeekEndDate();
+        
+        Log.d(TAG, "Current week period: " + weekStartDate + " to " + weekEndDate);
+        
+        // Filter expenses to only include those in the current week (same as ExpenseSummaryActivity)
+        double totalWeeklyExpenses = 0.0;
+        int weeklyExpenseCount = 0;
+        
+        for (Expense expense : allExpenses) {
+            String expenseDate = expense.getDate();
+            if (expenseDate != null && isDateInCurrentWeek(expenseDate, weekStartDate, weekEndDate)) {
+                totalWeeklyExpenses += expense.getAmount();
+                weeklyExpenseCount++;
+                Log.d(TAG, "Weekly expense included: " + expense.getCategory() + " - P" + expense.getAmount() + " on " + expenseDate + " (ID: " + expense.getId() + ")");
+            }
+        }
+        
+        Log.d(TAG, "Total weekly expenses: P" + totalWeeklyExpenses + " from " + weeklyExpenseCount + " expenses");
+        return totalWeeklyExpenses;
+    }
+    
+    /**
+     * Get all cached expenses for the current week period
+     */
+    private List<Expense> getAllCachedExpensesForWeek() {
+        List<Expense> weekExpenses = new ArrayList<>();
+        
+        if (currentUserId == null) {
+            return weekExpenses;
+        }
+        
+        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+        String weekStartDate = getCurrentWeekStartDate();
+        String weekEndDate = getCurrentWeekEndDate();
+        
+        // Get cached expenses for each day in the current week
+        java.util.Calendar calendar = java.util.Calendar.getInstance();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        
+        try {
+            java.util.Date startDate = dateFormat.parse(weekStartDate);
+            java.util.Date endDate = dateFormat.parse(weekEndDate);
+            
+            calendar.setTime(startDate);
+            
+            while (!calendar.getTime().after(endDate)) {
+                String currentDate = dateFormat.format(calendar.getTime());
+                String cacheKey = CACHE_KEY_PREFIX + currentUserId + "_" + currentDate;
+                
+                String cachedJson = prefs.getString(cacheKey, null);
+                if (cachedJson != null) {
+                    try {
+                        JSONArray cachedArray = new JSONArray(cachedJson);
+                        for (int i = 0; i < cachedArray.length(); i++) {
+                            JSONObject expenseJson = cachedArray.getJSONObject(i);
+                            Expense expense = new Expense();
+                            expense.setId(expenseJson.getString("id"));
+                            expense.setCategory(expenseJson.getString("category"));
+                            expense.setAmount(expenseJson.getDouble("amount"));
+                            expense.setDate(expenseJson.getString("date"));
+                            expense.setTimestamp(expenseJson.getLong("timestamp"));
+                            expense.setUserId(expenseJson.getString("userId"));
+                            weekExpenses.add(expense);
+                        }
+                    } catch (JSONException e) {
+                        Log.e(TAG, "Error parsing cached expenses for date: " + currentDate, e);
+                    }
+                }
+                
+                // Move to next day
+                calendar.add(java.util.Calendar.DAY_OF_YEAR, 1);
+            }
+        } catch (java.text.ParseException e) {
+            Log.e(TAG, "Error parsing week dates", e);
+        }
+        
+        return weekExpenses;
     }
     
     /**
@@ -2300,5 +2811,324 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             Log.d(TAG, "Amount budget force recalculated: " + newAmountBudget + 
                   " (originalBudget: " + originalBudget + " - weeklyExpenses: " + totalWeeklyExpenses + ")");
         });
+    }
+    
+    /**
+     * Clean up cache to remove any temporary/offline expenses after Firebase sync
+     * This ensures the cache only contains real Firebase expenses to prevent duplicates
+     */
+    private void cleanupCacheAfterSync() {
+        if (currentUserId == null) {
+            return;
+        }
+        
+        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        String cacheKey = CACHE_KEY_PREFIX + currentUserId + "_" + today;
+        
+        String cachedJson = prefs.getString(cacheKey, null);
+        if (cachedJson != null) {
+            try {
+                JSONArray cachedArray = new JSONArray(cachedJson);
+                List<Expense> cleanedExpenses = new ArrayList<>();
+                int removedCount = 0;
+                
+                for (int i = 0; i < cachedArray.length(); i++) {
+                    JSONObject expenseJson = cachedArray.getJSONObject(i);
+                    String expenseId = expenseJson.getString("id");
+                    
+                    // Only keep expenses with real Firebase IDs (no temp_ prefixes)
+                    if (!expenseId.startsWith("temp_")) {
+                        Expense expense = new Expense();
+                        expense.setId(expenseId);
+                        expense.setCategory(expenseJson.getString("category"));
+                        expense.setAmount(expenseJson.getDouble("amount"));
+                        expense.setDate(expenseJson.getString("date"));
+                        expense.setTimestamp(expenseJson.getLong("timestamp"));
+                        expense.setUserId(expenseJson.getString("userId"));
+                        cleanedExpenses.add(expense);
+                    } else {
+                        removedCount++;
+                        Log.d(TAG, "Removed temp expense from cache during cleanup: " + expenseId);
+                    }
+                }
+                
+                // Update cache with cleaned data
+                if (removedCount > 0) {
+                    cacheExpenses(cleanedExpenses);
+                    Log.d(TAG, "Cache cleanup complete: removed " + removedCount + " temp expenses, kept " + cleanedExpenses.size() + " real expenses");
+                }
+            } catch (JSONException e) {
+                Log.e(TAG, "Error during cache cleanup", e);
+            }
+        }
+    }
+    
+    /**
+     * Performs aggressive cleanup on app startup to prevent any duplicate UI elements
+     * but preserves offline expenses that haven't been synced yet
+     */
+    private void performStartupCleanup() {
+        Log.d(TAG, "Performing startup cleanup to prevent duplicates while preserving offline data");
+        
+        // Clear the transactions container immediately on startup
+        LinearLayout transactionsContainer = findViewById(R.id.transactionsContainer);
+        if (transactionsContainer != null) {
+            clearDynamicTransactions(transactionsContainer);
+        }
+        
+        // Reset category states
+        resetDailyCategoryStates();
+        
+        // DON'T clean up cache on startup - this would remove offline expenses!
+        // Only clean up cache after successful Firebase sync
+        Log.d(TAG, "Preserving cache data on startup - offline expenses maintained");
+        
+        Log.d(TAG, "Startup cleanup completed (offline data preserved)");
+    }
+    
+    // ================ PENDING OPERATIONS TRACKING ================
+    
+    /**
+     * Add a pending operation to be synced later (for offline edits/deletes)
+     */
+    private void addPendingOperation(String operationType, String expenseId, Expense expenseData) {
+        if (currentUserId == null) {
+            return;
+        }
+        
+        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        String pendingKey = PENDING_OPERATIONS_KEY + currentUserId + "_" + today;
+        
+        try {
+            // Get existing pending operations
+            String existingOps = prefs.getString(pendingKey, "[]");
+            JSONArray pendingArray = new JSONArray(existingOps);
+            
+            // Create new operation
+            JSONObject operation = new JSONObject();
+            operation.put("type", operationType);
+            operation.put("expenseId", expenseId);
+            operation.put("timestamp", System.currentTimeMillis());
+            
+            if (expenseData != null) {
+                JSONObject expenseJson = new JSONObject();
+                expenseJson.put("id", expenseData.getId());
+                expenseJson.put("userId", expenseData.getUserId());
+                expenseJson.put("category", expenseData.getCategory());
+                expenseJson.put("amount", expenseData.getAmount());
+                expenseJson.put("date", expenseData.getDate());
+                expenseJson.put("timestamp", expenseData.getTimestamp());
+                operation.put("expenseData", expenseJson);
+            }
+            
+            // Add to pending operations
+            pendingArray.put(operation);
+            
+            // Save back to preferences
+            prefs.edit().putString(pendingKey, pendingArray.toString()).apply();
+            
+            Log.d(TAG, "Added pending " + operationType + " operation for expense: " + expenseId);
+        } catch (JSONException e) {
+            Log.e(TAG, "Error adding pending operation", e);
+        }
+    }
+    
+    /**
+     * Get all pending operations for today
+     */
+    private List<JSONObject> getPendingOperations() {
+        List<JSONObject> operations = new ArrayList<>();
+        
+        if (currentUserId == null) {
+            return operations;
+        }
+        
+        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        String pendingKey = PENDING_OPERATIONS_KEY + currentUserId + "_" + today;
+        
+        try {
+            String pendingOps = prefs.getString(pendingKey, "[]");
+            JSONArray pendingArray = new JSONArray(pendingOps);
+            
+            for (int i = 0; i < pendingArray.length(); i++) {
+                operations.add(pendingArray.getJSONObject(i));
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "Error loading pending operations", e);
+        }
+        
+        return operations;
+    }
+    
+    /**
+     * Clear all pending operations for today (after successful sync)
+     */
+    private void clearPendingOperations() {
+        if (currentUserId == null) {
+            return;
+        }
+        
+        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        String pendingKey = PENDING_OPERATIONS_KEY + currentUserId + "_" + today;
+        
+        prefs.edit().remove(pendingKey).apply();
+        Log.d(TAG, "Cleared all pending operations for today");
+    }
+    
+    /**
+     * Remove a specific pending operation after successful sync
+     */
+    private void removePendingOperation(String operationType, String expenseId) {
+        if (currentUserId == null) {
+            return;
+        }
+        
+        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        String pendingKey = PENDING_OPERATIONS_KEY + currentUserId + "_" + today;
+        
+        try {
+            String existingOps = prefs.getString(pendingKey, "[]");
+            JSONArray pendingArray = new JSONArray(existingOps);
+            JSONArray newArray = new JSONArray();
+            
+            for (int i = 0; i < pendingArray.length(); i++) {
+                JSONObject op = pendingArray.getJSONObject(i);
+                String opType = op.getString("type");
+                String opExpenseId = op.getString("expenseId");
+                
+                // Keep operations that don't match the one we want to remove
+                if (!opType.equals(operationType) || !opExpenseId.equals(expenseId)) {
+                    newArray.put(op);
+                }
+            }
+            
+            prefs.edit().putString(pendingKey, newArray.toString()).apply();
+            Log.d(TAG, "Removed pending " + operationType + " operation for expense: " + expenseId);
+        } catch (JSONException e) {
+            Log.e(TAG, "Error removing pending operation", e);
+        }
+    }
+    
+    /**
+     * Update transaction item tag from temp ID to real Firebase ID
+     */
+    private void updateTransactionItemTag(String oldTempId, String newFirebaseId) {
+        LinearLayout container = findViewById(R.id.transactionsContainer);
+        if (container == null) {
+            return;
+        }
+        
+        // Search through all transaction items to find the one with the old temp ID
+        for (int i = 0; i < container.getChildCount(); i++) {
+            View child = container.getChildAt(i);
+            if (child != null && child.getTag() != null) {
+                String tag = (String) child.getTag();
+                if (oldTempId.equals(tag)) {
+                    // Update the tag with the new Firebase ID
+                    child.setTag(newFirebaseId);
+                    Log.d(TAG, "Updated transaction item tag from " + oldTempId + " to " + newFirebaseId);
+                    return;
+                }
+            }
+        }
+        
+        Log.d(TAG, "Transaction item with temp ID " + oldTempId + " not found in UI");
+    }
+    
+    // ================ BUDGET STORAGE METHODS ================
+
+    /**
+     * Debug method to check current cache state
+     */
+    private void debugCacheState(String context) {
+        if (currentUserId == null) {
+            Log.d(TAG, "[CACHE DEBUG " + context + "] currentUserId is null");
+            return;
+        }
+        
+        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        String cacheKey = CACHE_KEY_PREFIX + currentUserId + "_" + today;
+        
+        String cachedJson = prefs.getString(cacheKey, null);
+        if (cachedJson != null) {
+            try {
+                JSONArray cachedArray = new JSONArray(cachedJson);
+                Log.d(TAG, "[CACHE DEBUG " + context + "] Found " + cachedArray.length() + " cached expenses");
+                
+                for (int i = 0; i < cachedArray.length(); i++) {
+                    JSONObject expenseJson = cachedArray.getJSONObject(i);
+                    String expenseId = expenseJson.getString("id");
+                    String category = expenseJson.getString("category");
+                    double amount = expenseJson.getDouble("amount");
+                    boolean isOffline = expenseId.startsWith("temp_");
+                    Log.d(TAG, "[CACHE DEBUG " + context + "] " + (i + 1) + ". " + category + " - P" + amount + 
+                          " (ID: " + expenseId + ", Offline: " + isOffline + ")");
+                }
+            } catch (JSONException e) {
+                Log.e(TAG, "[CACHE DEBUG " + context + "] Error parsing cache", e);
+            }
+        } else {
+            Log.d(TAG, "[CACHE DEBUG " + context + "] No cache found for key: " + cacheKey);
+        }
+    }
+    
+    /**
+     * Get the original timestamp for an expense from cache
+     * This helps preserve timestamp integrity when saving UI transactions to cache
+     */
+    private long getTimestampFromCache(String expenseId) {
+        if (currentUserId == null || expenseId == null) {
+            return 0;
+        }
+        
+        SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        String cacheKey = CACHE_KEY_PREFIX + currentUserId + "_" + today;
+        
+        String cachedJson = prefs.getString(cacheKey, null);
+        if (cachedJson != null) {
+            try {
+                JSONArray cachedArray = new JSONArray(cachedJson);
+                for (int i = 0; i < cachedArray.length(); i++) {
+                    JSONObject expenseJson = cachedArray.getJSONObject(i);
+                    String cachedId = expenseJson.getString("id");
+                    if (expenseId.equals(cachedId)) {
+                        return expenseJson.getLong("timestamp");
+                    }
+                }
+            } catch (JSONException e) {
+                Log.e(TAG, "Error getting timestamp from cache for " + expenseId, e);
+            }
+        }
+        return 0;
+    }
+    
+    /**
+     * Check if the transactions container has any transaction items
+     */
+    private boolean hasTransactionItems(LinearLayout container) {
+        if (container == null) {
+            return false;
+        }
+        
+        // Check if any child views are transaction items
+        for (int i = 0; i < container.getChildCount(); i++) {
+            View child = container.getChildAt(i);
+            // Transaction items have categoryName and transactionAmount TextViews
+            if (child.findViewById(R.id.categoryName) != null && 
+                child.findViewById(R.id.transactionAmount) != null) {
+                Log.d(TAG, "Found transaction item in UI at index " + i);
+                return true;
+            }
+        }
+        
+        Log.d(TAG, "No transaction items found in UI (container has " + container.getChildCount() + " children)");
+        return false;
     }
 }
