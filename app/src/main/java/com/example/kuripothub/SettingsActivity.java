@@ -24,8 +24,9 @@ public class SettingsActivity extends AppCompatActivity {
         // Account Center (Available)
         CardView accountCenterCard = findViewById(R.id.accountCenterCard);
         accountCenterCard.setOnClickListener(v -> {
-            // Navigate to Account Center (placeholder for now)
-            Toast.makeText(this, "Account Center - Coming Soon!", Toast.LENGTH_SHORT).show();
+            // Navigate to Account Center
+            Intent intent = new Intent(this, AccountCenterActivity.class);
+            startActivity(intent);
         });
 
         // Budget Preference (Available - Navigate to PreferenceActivity)

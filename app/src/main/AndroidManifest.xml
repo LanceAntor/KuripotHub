@@ -80,5 +80,10 @@
             android:name=".ProfileActivity"
             android:exported="false">
         </activity>
+        
+        <activity
+            android:name=".AccountCenterActivity"
+            android:exported="false">
+        </activity>
     </application>
 </manifest>
