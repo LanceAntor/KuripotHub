@@ -1080,14 +1080,24 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
 
     // Firebase methods
     private void loadUserData() {
+        Log.d(TAG, "Loading user data for userId: " + currentUserId);
+        Log.d(TAG, "Before loading - originalBudget: " + originalBudget + ", currentBudget: " + currentBudget);
+        
         firebaseManager.getUserProfile(currentUserId)
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
                         User user = documentSnapshot.toObject(User.class);
                         if (user != null) {
+                            double oldOriginalBudget = originalBudget;
+                            double oldCurrentBudget = currentBudget;
+                            
                             currentBudget = user.getBudget();
                             originalBudget = currentBudget; // Initialize original budget from user profile
 
+                            Log.d(TAG, "User budget loaded from Firebase:");
+                            Log.d(TAG, "  - Old originalBudget: " + oldOriginalBudget + " -> New: " + originalBudget);
+                            Log.d(TAG, "  - Old currentBudget: " + oldCurrentBudget + " -> New: " + currentBudget);
+                            
                             // Update username display
                             TextView usernameText = findViewById(R.id.usernameText);
                             if (user.getUsername() != null && !user.getUsername().isEmpty()) {
@@ -1100,9 +1110,13 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                             
                             // Immediately calculate amount budget from current period expenses (like Expense Summary)
                             calculateAndSetAmountBudget();
+                        } else {
+                            Log.w(TAG, "User object is null from Firebase document");
+                            calculateAndSetAmountBudget();
                         }
                     } else {
-                        Log.d(TAG, "No user profile found, using default budget");
+                        Log.d(TAG, "No user profile found in Firebase, using default budget");
+                        Log.d(TAG, "Default originalBudget: " + originalBudget + ", currentBudget: " + currentBudget);
                         
                         // Even with default budget, calculate amount budget from current period expenses
                         calculateAndSetAmountBudget();
@@ -1118,7 +1132,8 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                     debugUserExpenses();
                 })
                 .addOnFailureListener(e -> {
-                    Log.w(TAG, "Error loading user data", e);
+                    Log.w(TAG, "Error loading user data from Firebase", e);
+                    Log.d(TAG, "Using fallback - originalBudget: " + originalBudget + ", currentBudget: " + currentBudget);
 
                     // Even if user data fails, calculate amount budget from current period expenses
                     calculateAndSetAmountBudget();
@@ -1266,9 +1281,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         CardView logoutButton = profileDialog.findViewById(R.id.logoutButton);
 
         editProfileButton.setOnClickListener(v -> {
-
             profileDialog.dismiss();
-            Toast.makeText(this, "Edit Profile - Coming Soon!", Toast.LENGTH_SHORT).show();
+            Intent intent = new Intent(ExpenseTrackingActivity.this, ProfileActivity.class);
+            startActivity(intent);
         });
         
         logoutButton.setOnClickListener(v -> {
@@ -2520,6 +2535,7 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
      */
     private void calculateAndSetAmountBudget() {
         Log.d(TAG, "Calculating and setting amount budget using exact ExpenseSummary logic...");
+        Log.d(TAG, "Current originalBudget: " + originalBudget);
         
         // Use exact same logic as ExpenseSummaryActivity SAVED calculation
         calculateWeeklyExpensesUsingExpenseSummaryLogic(totalWeeklyExpenses -> {
@@ -2532,6 +2548,12 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
             
             Log.d(TAG, "Amount budget calculated using ExpenseSummary logic: P" + weeklySavings + 
                   " (Original budget: P" + originalBudget + " - Weekly expenses: P" + totalWeeklyExpenses + ")");
+                  
+            // Additional debug logging for new users
+            if (totalWeeklyExpenses == 0.0 && weeklySavings != originalBudget) {
+                Log.w(TAG, "WARNING: New user with no expenses but amountBudget != originalBudget!");
+                Log.w(TAG, "Expected amountBudget: " + originalBudget + ", Actual: " + weeklySavings);
+            }
         });
     }
     

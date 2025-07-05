@@ -97,6 +97,12 @@ public class FirebaseManager {
                 .get();
     }
     
+    public Task<QuerySnapshot> checkEmailInFirestore(String email) {
+        return firestore.collection(USERS_COLLECTION)
+                .whereEqualTo("email", email)
+                .get();
+    }
+    
     public Task<Void> updateUserBudget(String uid, double budget) {
         Map<String, Object> updates = new HashMap<>();
         updates.put("budget", budget);

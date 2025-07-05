@@ -158,7 +158,7 @@ public class SignUpActivity extends AppCompatActivity {
                                 email,
                                 "", // Name can be updated later
                                 username,
-                                1000.0 // Default budget
+                                2000.0 // Default budget - matches ExpenseTrackingActivity default
                             );
                             
                             firebaseManager.createUserProfile(user)
@@ -189,7 +189,9 @@ public class SignUpActivity extends AppCompatActivity {
                             String exceptionMessage = task.getException().getMessage();
                             if (exceptionMessage != null) {
                                 if (exceptionMessage.contains("email address is already in use")) {
-                                    errorMessage = "This email is already registered";
+                                    // Check if this user exists in Firestore but has authentication record
+                                    checkUserRecordAndProvideGuidance(email);
+                                    return; // Don't show the default error message yet
                                 } else if (exceptionMessage.contains("email address is badly formatted")) {
                                     errorMessage = "Invalid email format";
                                 } else if (exceptionMessage.contains("password is invalid")) {
@@ -206,6 +208,51 @@ public class SignUpActivity extends AppCompatActivity {
 
     private boolean isValidEmail(String email) {
         return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches();
+    }
+    
+    private void checkUserRecordAndProvideGuidance(String email) {
+        // Extract potential user ID from email for Firestore check
+        // We'll check if a user profile exists in Firestore with this email
+        firebaseManager.checkEmailInFirestore(email)
+                .addOnCompleteListener(firestoreTask -> {
+                    if (firestoreTask.isSuccessful() && !firestoreTask.getResult().isEmpty()) {
+                        // User profile exists in Firestore - this means the account exists and user should log in
+                        Toast.makeText(SignUpActivity.this, 
+                            "An account with this email already exists. Please log in instead.", 
+                            Toast.LENGTH_LONG).show();
+                    } else {
+                        // User profile doesn't exist in Firestore but email is in Authentication
+                        // This means the account was deleted from Firestore but still exists in Firebase Auth
+                        // Offer to recreate the profile
+                        showRecreateAccountDialog(email);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    // Fallback to generic message if Firestore check fails
+                    Toast.makeText(SignUpActivity.this, 
+                        "This email is already registered. Please try logging in or use a different email.", 
+                        Toast.LENGTH_LONG).show();
+                });
+    }
+    
+    private void showRecreateAccountDialog(String email) {
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Account Recovery")
+                .setMessage("This email was previously registered but the account data was deleted. " +
+                           "Would you like to try recovering your account by logging in, or use a different email?")
+                .setPositiveButton("Try Login", (dialog, which) -> {
+                    // Navigate to login with this email pre-filled
+                    Intent intent = new Intent(SignUpActivity.this, LoginActivity.class);
+                    intent.putExtra("prefill_email", email);
+                    startActivity(intent);
+                })
+                .setNegativeButton("Use Different Email", (dialog, which) -> {
+                    // Clear the email field so user can enter a different one
+                    emailInput.setText("");
+                    emailInput.requestFocus();
+                })
+                .setNeutralButton("Cancel", null)
+                .show();
     }
 
     @Override

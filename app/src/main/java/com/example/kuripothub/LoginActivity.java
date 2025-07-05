@@ -41,6 +41,13 @@ public class LoginActivity extends AppCompatActivity {
 
         initializeViews();
         setupClickListeners();
+        
+        // Check if email was passed from SignUpActivity for prefilling
+        String prefillEmail = getIntent().getStringExtra("prefill_email");
+        if (prefillEmail != null && !prefillEmail.isEmpty()) {
+            usernameInput.setText(prefillEmail);
+            passwordInput.requestFocus(); // Move focus to password field
+        }
     }
 
     private void initializeViews() {
