@@ -202,10 +202,33 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         updateCategoryStates(categoryBottomSheetView);
     }    private void showCategoryOptions() {
         if (categoryBottomSheet != null) {
-            // Update category states before showing
+            // Always update category states from UI and cache before showing
+            // 1. Reset states
+            resetDailyCategoryStates();
+            // 2. Check UI for already added categories
+            checkExistingCategoriesForToday();
+            // 3. If offline, also check cache for today's expenses
+            if (!isNetworkAvailable()) {
+                SharedPreferences prefs = getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+                String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+                String cacheKey = CACHE_KEY_PREFIX + currentUserId + "_" + today;
+                String cachedJson = prefs.getString(cacheKey, null);
+                if (cachedJson != null) {
+                    try {
+                        JSONArray cachedArray = new JSONArray(cachedJson);
+                        for (int i = 0; i < cachedArray.length(); i++) {
+                            JSONObject expenseJson = cachedArray.getJSONObject(i);
+                            String category = expenseJson.getString("category").toLowerCase();
+                            markCategoryAsUsed(category);
+                        }
+                    } catch (JSONException e) {
+                        Log.e(TAG, "Error parsing cached expenses for category state", e);
+                    }
+                }
+            }
+            // 4. Update bottom sheet UI
             updateCategoryStates(categoryBottomSheetView);
-            
-            // Set behavior to eliminate background dimming effect
+            // 5. Show bottom sheet
             categoryBottomSheet.getBehavior().setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
             categoryBottomSheet.show();
         }
