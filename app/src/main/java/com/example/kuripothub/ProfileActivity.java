@@ -212,65 +212,62 @@ public class ProfileActivity extends AppCompatActivity {
                 });
     }
     
+    private int getUserPreferredWeekStartDay() {
+        // Get user's preferred start day from preferences
+        String userStartDay = PreferenceActivity.getStartDay(this); // e.g., "Monday", "Sunday"
+        switch (userStartDay.toLowerCase()) {
+            case "sunday": return Calendar.SUNDAY;
+            case "monday": return Calendar.MONDAY;
+            case "tuesday": return Calendar.TUESDAY;
+            case "wednesday": return Calendar.WEDNESDAY;
+            case "thursday": return Calendar.THURSDAY;
+            case "friday": return Calendar.FRIDAY;
+            case "saturday": return Calendar.SATURDAY;
+            default: return Calendar.MONDAY;
+        }
+    }
+    
     private void calculateCumulativeData(List<Expense> expenses) {
         Log.d(TAG, "Calculating cumulative data for " + expenses.size() + " expenses");
-        
-        // Reset values
         cumulativeSpent = 0.0;
         cumulativeBudget = 0.0;
         
-        // Simple approach: Just sum ALL expenses from the database (like ExpenseSummaryActivity)
+        // Use user's preferred week start
+        int weekStartDay = getUserPreferredWeekStartDay();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        Calendar calendar = Calendar.getInstance();
+        
+        // Group expenses by week using preferred start day
+        Map<String, List<Expense>> expensesByWeek = new HashMap<>();
         for (Expense expense : expenses) {
-            double amount = expense.getAmount();
-            cumulativeSpent += amount;
-            Log.d(TAG, "Adding expense: ₱" + amount + " on " + expense.getDate() + " (" + expense.getCategory() + ")");
-        }
-        
-        // Calculate budget: For cumulative view, we need to calculate based on weeks since first expense
-        if (!expenses.isEmpty()) {
-            // Find the earliest expense date to calculate total weeks
-            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-            Date earliestDate = null;
-            Date latestDate = null;
-            
-            for (Expense expense : expenses) {
-                try {
-                    if (expense.getDate() != null) {
-                        Date expenseDate = dateFormat.parse(expense.getDate());
-                        if (earliestDate == null || expenseDate.before(earliestDate)) {
-                            earliestDate = expenseDate;
-                        }
-                        if (latestDate == null || expenseDate.after(latestDate)) {
-                            latestDate = expenseDate;
-                        }
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error parsing date: " + expense.getDate(), e);
+            try {
+                if (expense.getDate() != null) {
+                    Date expenseDate = dateFormat.parse(expense.getDate());
+                    calendar.setTime(expenseDate);
+                    calendar.setFirstDayOfWeek(weekStartDay);
+                    int year = calendar.get(Calendar.YEAR);
+                    int week = calendar.get(Calendar.WEEK_OF_YEAR);
+                    String weekKey = year + "-W" + String.format("%02d", week);
+                    if (!expensesByWeek.containsKey(weekKey)) expensesByWeek.put(weekKey, new ArrayList<>());
+                    expensesByWeek.get(weekKey).add(expense);
                 }
+            } catch (Exception e) {
+                Log.e(TAG, "Error parsing expense date: " + expense.getDate(), e);
             }
-            
-            // Calculate total weeks from earliest to latest expense
-            if (earliestDate != null && latestDate != null) {
-                long diffInMillis = latestDate.getTime() - earliestDate.getTime();
-                long diffInDays = diffInMillis / (1000 * 60 * 60 * 24);
-                int totalWeeks = Math.max(1, (int) Math.ceil(diffInDays / 7.0) + 1); // +1 to include current week
-                cumulativeBudget = totalWeeks * 2000.0;
-                
-                Log.d(TAG, "Date range: " + earliestDate + " to " + latestDate);
-                Log.d(TAG, "Total days: " + diffInDays + ", Total weeks: " + totalWeeks);
-            } else {
-                // Fallback: At least current week
-                cumulativeBudget = 2000.0;
-            }
-        } else {
-            // No expenses: Just current week budget
-            cumulativeBudget = 2000.0;
         }
         
+        // Calculate cumulative budget and spent
+        int weekCount = expensesByWeek.size();
+        for (List<Expense> weekExpenses : expensesByWeek.values()) {
+            cumulativeBudget += 2000.0; // Only increment for actual budget resets
+            for (Expense expense : weekExpenses) {
+                cumulativeSpent += expense.getAmount();
+            }
+        }
+        if (weekCount == 0) cumulativeBudget = 2000.0; // No expenses: just current week budget
         cumulativeSaved = cumulativeBudget - cumulativeSpent;
-        
         Log.d(TAG, "=== FINAL CALCULATION ===");
-        Log.d(TAG, "Total expenses processed: " + expenses.size());
+        Log.d(TAG, "Total weeks: " + weekCount);
         Log.d(TAG, "Cumulative budget: ₱" + cumulativeBudget);
         Log.d(TAG, "Cumulative spent: ₱" + cumulativeSpent);
         Log.d(TAG, "Cumulative saved: ₱" + cumulativeSaved);
@@ -411,42 +408,33 @@ public class ProfileActivity extends AppCompatActivity {
         Map<String, WeeklySavings> weeklySavingsMap = new HashMap<>();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         Calendar calendar = Calendar.getInstance();
-        
-        // Define week start preference (using Monday as default)
-        int weekStartDay = Calendar.MONDAY;
-        
+        int weekStartDay = getUserPreferredWeekStartDay();
         for (Expense expense : expenses) {
             try {
                 if (expense.getDate() != null) {
                     Date expenseDate = dateFormat.parse(expense.getDate());
                     calendar.setTime(expenseDate);
-                    
-                    // Calculate week identifier
-                    String weekKey = getWeekKey(calendar, weekStartDay);
-                    
-                    // Get or create weekly savings record
+                    calendar.setFirstDayOfWeek(weekStartDay);
+                    int year = calendar.get(Calendar.YEAR);
+                    int week = calendar.get(Calendar.WEEK_OF_YEAR);
+                    String weekKey = year + "-W" + String.format("%02d", week);
                     WeeklySavings weekSavings = weeklySavingsMap.get(weekKey);
                     if (weekSavings == null) {
                         weekSavings = new WeeklySavings();
                         weekSavings.week = weekKey;
-                        weekSavings.budget = 2000.0; // Fixed weekly budget
+                        weekSavings.budget = 2000.0;
                         weekSavings.spent = 0.0;
                         weeklySavingsMap.put(weekKey, weekSavings);
                     }
-                    
-                    // Add expense to weekly total
                     weekSavings.spent += expense.getAmount();
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error processing expense date: " + expense.getDate(), e);
             }
         }
-        
-        // Calculate savings for each week
         for (WeeklySavings weekSavings : weeklySavingsMap.values()) {
             weekSavings.saved = weekSavings.budget - weekSavings.spent;
         }
-        
         return weeklySavingsMap;
     }
     
