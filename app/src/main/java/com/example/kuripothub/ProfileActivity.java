@@ -60,6 +60,7 @@ public class ProfileActivity extends AppCompatActivity {
     private double cumulativeBudget = 0.0;
     private double cumulativeSpent = 0.0;
     private double cumulativeSaved = 0.0;
+    private double userBudget = 2000.0; // Default, will be set dynamically
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -109,22 +110,31 @@ public class ProfileActivity extends AppCompatActivity {
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
                         User user = documentSnapshot.toObject(User.class);
-                        if (user != null && user.getUsername() != null) {
-                            Log.d(TAG, "User data loaded: " + user.getUsername());
-                            runOnUiThread(() -> {
-                                profileUsername.setText(user.getUsername());
-                            });
+                        if (user != null) {
+                            if (user.getUsername() != null) {
+                                Log.d(TAG, "User data loaded: " + user.getUsername());
+                                runOnUiThread(() -> profileUsername.setText(user.getUsername()));
+                            } else {
+                                Log.w(TAG, "User object is missing username");
+                                runOnUiThread(() -> profileUsername.setText("User"));
+                            }
+                            // Set dynamic budget if available
+                            if (user.getBudget() > 0) {
+                                userBudget = user.getBudget();
+                                Log.d(TAG, "Dynamic user budget loaded: " + userBudget);
+                            } else {
+                                userBudget = 2000.0;
+                                Log.d(TAG, "User budget not set, using default: " + userBudget);
+                            }
                         } else {
-                            Log.w(TAG, "User object is null or missing username");
-                            runOnUiThread(() -> {
-                                profileUsername.setText("User");
-                            });
+                            Log.w(TAG, "User object is null");
+                            runOnUiThread(() -> profileUsername.setText("User"));
+                            userBudget = 2000.0;
                         }
                     } else {
                         Log.w(TAG, "User document does not exist");
-                        runOnUiThread(() -> {
-                            profileUsername.setText("Guest");
-                        });
+                        runOnUiThread(() -> profileUsername.setText("Guest"));
+                        userBudget = 2000.0;
                     }
                 })
                 .addOnFailureListener(e -> {
@@ -133,6 +143,7 @@ public class ProfileActivity extends AppCompatActivity {
                         profileUsername.setText("Guest");
                         Toast.makeText(ProfileActivity.this, "Failed to load user data", Toast.LENGTH_SHORT).show();
                     });
+                    userBudget = 2000.0;
                 });
     }
     
@@ -344,51 +355,76 @@ public class ProfileActivity extends AppCompatActivity {
             
             // Create dataset
             LineDataSet dataSet = new LineDataSet(entries, "Weekly Savings");
-            dataSet.setColor(Color.parseColor("#2E7D32")); // Green color
-            dataSet.setCircleColor(Color.parseColor("#1B5E20")); // Darker green for points
-            dataSet.setLineWidth(3f);
-            dataSet.setCircleRadius(6f);
+            dataSet.setColor(Color.parseColor("#388E3C")); // Rich green line
+            dataSet.setCircleColor(Color.parseColor("#FBC02D")); // Gold/yellow points
+            dataSet.setCircleRadius(8f);
+            dataSet.setCircleHoleRadius(4f);
+            dataSet.setCircleHoleColor(Color.WHITE);
+            dataSet.setLineWidth(4f);
             dataSet.setDrawValues(true);
-            dataSet.setValueTextSize(10f);
-            dataSet.setValueTextColor(Color.BLACK);
-            dataSet.setDrawFilled(false);
-            
+            dataSet.setValueTextSize(14f);
+            dataSet.setValueTextColor(Color.parseColor("#212121"));
+            dataSet.setDrawFilled(true);
+            dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER); // Smooth curve
+            // Gradient fill under the line
+            int startColor = Color.parseColor("#A5D6A7"); // Light green
+            int endColor = Color.parseColor("#FFF9C4"); // Light yellow
+            android.graphics.drawable.GradientDrawable gradient = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{startColor, endColor}
+            );
+            dataSet.setFillDrawable(gradient);
+            dataSet.setHighlightEnabled(true);
+            dataSet.setHighLightColor(Color.parseColor("#FBC02D"));
+            // Value label formatter (explicit implementation to avoid lambda error)
+            dataSet.setValueFormatter(new com.github.mikephil.charting.formatter.ValueFormatter() {
+                @Override
+                public String getPointLabel(Entry entry) {
+                    return "₱" + ((int) entry.getY());
+                }
+                @Override
+                public String getFormattedValue(float value) {
+                    return "₱" + ((int) value);
+                }
+            });
             // Create line data
             LineData lineData = new LineData(dataSet);
             lineChart.setData(lineData);
-            
             // Customize chart appearance
             Description description = new Description();
             description.setText("");
             lineChart.setDescription(description);
-            
             // Configure X-axis
             XAxis xAxis = lineChart.getXAxis();
             xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
             xAxis.setValueFormatter(new IndexAxisValueFormatter(weekLabels));
             xAxis.setGranularity(1f);
             xAxis.setGranularityEnabled(true);
-            xAxis.setTextColor(Color.BLACK);
-            xAxis.setTextSize(10f);
-            
+            xAxis.setTextColor(Color.parseColor("#212121"));
+            xAxis.setTextSize(14f);
+            xAxis.setDrawGridLines(false);
+            xAxis.setAxisLineColor(Color.parseColor("#212121"));
+            xAxis.setAxisLineWidth(2f);
             // Configure Y-axis
             YAxis leftAxis = lineChart.getAxisLeft();
-            leftAxis.setTextColor(Color.BLACK);
-            leftAxis.setTextSize(10f);
+            leftAxis.setTextColor(Color.parseColor("#212121"));
+            leftAxis.setTextSize(14f);
             leftAxis.setAxisMinimum(0f);
-            
+            // Set axis maximum to user's dynamic budget
+            leftAxis.setAxisMaximum((float) userBudget);
+            leftAxis.setDrawGridLines(true);
+            leftAxis.setGridColor(Color.parseColor("#BDBDBD"));
+            leftAxis.setAxisLineColor(Color.parseColor("#212121"));
+            leftAxis.setAxisLineWidth(2f);
             YAxis rightAxis = lineChart.getAxisRight();
             rightAxis.setEnabled(false);
             
-            // Disable interactions for a cleaner look
-            lineChart.setTouchEnabled(false);
-            lineChart.setDragEnabled(false);
-            lineChart.setScaleEnabled(false);
-            lineChart.setPinchZoom(false);
-            
+            // Chart background
+            lineChart.setBackgroundColor(Color.parseColor("#FFF9C4")); // Light yellow
+            // Animation
+            lineChart.animateX(1200);
             // Remove legend
             lineChart.getLegend().setEnabled(false);
-            
             // Refresh chart
             lineChart.invalidate();
             
