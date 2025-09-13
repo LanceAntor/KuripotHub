@@ -22,6 +22,7 @@ public class FirebaseManager {
     private static final String TAG = "FirebaseManager";
     private static final String USERS_COLLECTION = "users";
     private static final String EXPENSES_COLLECTION = "expenses";
+    private static final String BUDGET_HISTORY_COLLECTION = "budget_history";
     
     private static FirebaseManager instance;
     private FirebaseAuth auth;
@@ -158,5 +159,52 @@ public class FirebaseManager {
         return firestore.collection(EXPENSES_COLLECTION)
                 .document(expenseId)
                 .set(expense);
+    }
+    
+    // Budget History methods
+    public Task<DocumentReference> addBudgetHistory(com.example.kuripothub.models.BudgetHistory budgetHistory) {
+        Log.d(TAG, "Adding budget history for user: " + budgetHistory.getUserId() + 
+              ", budget: " + budgetHistory.getBudget() + 
+              ", startDate: " + budgetHistory.getStartDate());
+        return firestore.collection(BUDGET_HISTORY_COLLECTION)
+                .add(budgetHistory)
+                .addOnSuccessListener(documentReference -> {
+                    Log.d(TAG, "Budget history added with ID: " + documentReference.getId());
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to add budget history", e);
+                });
+    }
+    
+    public Task<QuerySnapshot> getUserBudgetHistory(String userId) {
+        Log.d(TAG, "Getting budget history for user: " + userId);
+        return firestore.collection(BUDGET_HISTORY_COLLECTION)
+                .whereEqualTo("userId", userId)
+                .orderBy("timestamp", Query.Direction.ASCENDING)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    Log.d(TAG, "Budget history query successful. Found " + querySnapshot.size() + " records");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to get budget history", e);
+                });
+    }
+    
+    public Task<Void> endCurrentBudgetPeriod(String userId, String endDate) {
+        Log.d(TAG, "Ending current budget period for user: " + userId + " on date: " + endDate);
+        return firestore.collection(BUDGET_HISTORY_COLLECTION)
+                .whereEqualTo("userId", userId)
+                .whereEqualTo("endDate", null) // Current active budget
+                .get()
+                .continueWithTask(task -> {
+                    if (task.isSuccessful() && !task.getResult().isEmpty()) {
+                        // Update the current budget to have an end date
+                        DocumentReference doc = task.getResult().getDocuments().get(0).getReference();
+                        return doc.update("endDate", endDate);
+                    } else {
+                        Log.w(TAG, "No current budget period found to end");
+                        return null;
+                    }
+                });
     }
 }

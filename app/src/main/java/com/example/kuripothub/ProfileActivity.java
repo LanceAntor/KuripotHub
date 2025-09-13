@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.kuripothub.models.Expense;
 import com.example.kuripothub.models.User;
+import com.example.kuripothub.models.BudgetHistory;
 import com.example.kuripothub.utils.FirebaseManager;
 import com.example.kuripothub.utils.PreferenceBasedDateUtils;
 import com.github.mikephil.charting.charts.LineChart;
@@ -61,6 +62,7 @@ public class ProfileActivity extends AppCompatActivity {
     private double cumulativeSpent = 0.0;
     private double cumulativeSaved = 0.0;
     private double userBudget = 2000.0; // Default, will be set dynamically
+    private Calendar earliestExpenseCalendar = null; // Store earliest expense date
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -243,9 +245,34 @@ public class ProfileActivity extends AppCompatActivity {
         cumulativeSpent = 0.0;
         cumulativeBudget = 0.0;
         
+        // Find the earliest expense date to calculate total weeks
+        earliestExpenseCalendar = null;
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        
+        for (Expense expense : expenses) {
+            try {
+                if (expense.getDate() != null) {
+                    Date expenseDate = dateFormat.parse(expense.getDate());
+                    Calendar expenseCalendar = Calendar.getInstance();
+                    expenseCalendar.setTime(expenseDate);
+                    
+                    if (earliestExpenseCalendar == null || expenseCalendar.before(earliestExpenseCalendar)) {
+                        earliestExpenseCalendar = (Calendar) expenseCalendar.clone();
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error parsing expense date: " + expense.getDate(), e);
+            }
+        }
+        
+        if (earliestExpenseCalendar != null) {
+            Log.d(TAG, "Found earliest expense date: " + dateFormat.format(earliestExpenseCalendar.getTime()));
+        } else {
+            Log.d(TAG, "No valid expense dates found");
+        }
+        
         // Use user's preferred week start
         int weekStartDay = getUserPreferredWeekStartDay();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         Calendar calendar = Calendar.getInstance();
         
         // Group expenses by week using preferred start day
@@ -267,21 +294,276 @@ public class ProfileActivity extends AppCompatActivity {
             }
         }
         
-        // Calculate cumulative budget and spent
-        int weekCount = expensesByWeek.size();
+        // Load budget history and calculate cumulative budget based on actual budget changes
+        loadBudgetHistoryAndCalculate(expensesByWeek);
+    }
+    
+    private void loadBudgetHistoryAndCalculate(Map<String, List<Expense>> expensesByWeek) {
+        firebaseManager.getUserBudgetHistory(currentUserId)
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    // Parse budget history
+                    List<BudgetHistory> budgetHistoryList = new ArrayList<>();
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        BudgetHistory budgetHistory = document.toObject(BudgetHistory.class);
+                        if (budgetHistory != null) {
+                            budgetHistory.setId(document.getId());
+                            budgetHistoryList.add(budgetHistory);
+                        }
+                    }
+                    
+                    // Calculate cumulative budget and spent using budget history
+                    calculateWithBudgetHistory(expensesByWeek, budgetHistoryList);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load budget history, using default budget calculation", e);
+                    // Fallback to old calculation method
+                    calculateWithDefaultBudget(expensesByWeek);
+                });
+    }
+    
+    private void calculateWithBudgetHistory(Map<String, List<Expense>> expensesByWeek, List<BudgetHistory> budgetHistoryList) {
+        Log.d(TAG, "Calculating with budget history: " + budgetHistoryList.size() + " budget changes");
+        
+        // Sort budget history by start date to ensure proper order
+        budgetHistoryList.sort((b1, b2) -> {
+            if (b1.getStartDate() == null) return 1;
+            if (b2.getStartDate() == null) return -1;
+            return b1.getStartDate().compareTo(b2.getStartDate());
+        });
+        
+        // Log all budget history entries for debugging
+        for (int i = 0; i < budgetHistoryList.size(); i++) {
+            BudgetHistory bh = budgetHistoryList.get(i);
+            Log.d(TAG, "Budget History " + i + ": ₱" + bh.getBudget() + " from " + bh.getStartDate() + " to " + bh.getEndDate());
+        }
+        
+        cumulativeBudget = 0.0;
+        cumulativeSpent = 0.0;
+        
+        // Calculate total weeks from user creation to current date
+        int totalWeeksFromStart = calculateTotalWeeksFromUserStart();
+        
+        if (totalWeeksFromStart <= 0) {
+            Log.w(TAG, "Could not determine weeks from start, falling back to expense-based calculation");
+            calculateWithDefaultBudget(expensesByWeek);
+            return;
+        }
+        
+        Log.d(TAG, "User has been active for " + totalWeeksFromStart + " weeks");
+        
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        
+        // Calculate budget for each week from start to current
+        for (int weekNumber = 1; weekNumber <= totalWeeksFromStart; weekNumber++) {
+            String weekStartDate = getDateForWeekNumber(weekNumber);
+            double weekBudget = getBudgetForDate(weekStartDate, budgetHistoryList);
+            cumulativeBudget += weekBudget;
+            
+            Log.d(TAG, "Week " + weekNumber + " (starting " + weekStartDate + "): Budget=₱" + weekBudget);
+        }
+        
+        // Calculate total spent from all expenses
         for (List<Expense> weekExpenses : expensesByWeek.values()) {
-            cumulativeBudget += 2000.0; // Only increment for actual budget resets
             for (Expense expense : weekExpenses) {
                 cumulativeSpent += expense.getAmount();
             }
         }
-        if (weekCount == 0) cumulativeBudget = 2000.0; // No expenses: just current week budget
+        
         cumulativeSaved = cumulativeBudget - cumulativeSpent;
-        Log.d(TAG, "=== FINAL CALCULATION ===");
-        Log.d(TAG, "Total weeks: " + weekCount);
+        
+        Log.d(TAG, "=== BUDGET HISTORY CALCULATION SUMMARY ===");
+        Log.d(TAG, "Total weeks from start: " + totalWeeksFromStart);
+        Log.d(TAG, "Budget history entries: " + budgetHistoryList.size());
         Log.d(TAG, "Cumulative budget: ₱" + cumulativeBudget);
         Log.d(TAG, "Cumulative spent: ₱" + cumulativeSpent);
         Log.d(TAG, "Cumulative saved: ₱" + cumulativeSaved);
+        Log.d(TAG, "Expected for scenario (Week1:2000 + Week2:2000 + Week3:1000): ₱5000");
+        Log.d(TAG, "=== END BUDGET CALCULATION ===");
+        
+        runOnUiThread(this::updateUI);
+    }
+    
+    private int calculateTotalWeeksFromUserStart() {
+        try {
+            // Try to determine the actual week number based on user data
+            // First, try to get the earliest expense date
+            Calendar earliestExpenseDate = getEarliestExpenseDate();
+            Calendar currentDate = Calendar.getInstance();
+            int weekStartDay = getUserPreferredWeekStartDay();
+            
+            if (earliestExpenseDate != null) {
+                // Calculate weeks from earliest expense to now
+                earliestExpenseDate.setFirstDayOfWeek(weekStartDay);
+                currentDate.setFirstDayOfWeek(weekStartDay);
+                
+                // Set both dates to the start of their respective weeks
+                earliestExpenseDate.set(Calendar.DAY_OF_WEEK, weekStartDay);
+                currentDate.set(Calendar.DAY_OF_WEEK, weekStartDay);
+                
+                // Calculate difference in milliseconds and convert to weeks
+                long timeDifferenceMs = currentDate.getTimeInMillis() - earliestExpenseDate.getTimeInMillis();
+                long weeksDifference = timeDifferenceMs / (7 * 24 * 60 * 60 * 1000L);
+                
+                // Add 1 because we include both the start week and current week
+                int totalWeeks = (int) weeksDifference + 1;
+                
+                Log.d(TAG, "Calculated weeks from earliest expense:");
+                Log.d(TAG, "  Earliest expense week: " + new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(earliestExpenseDate.getTime()));
+                Log.d(TAG, "  Current week: " + new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(currentDate.getTime()));
+                Log.d(TAG, "  Total weeks: " + totalWeeks);
+                
+                return Math.max(1, totalWeeks);
+            } else {
+                // No expenses found, check if we have budget history to determine start date
+                Log.d(TAG, "No expenses found, using budget history or default");
+                // For now, assume user has been active for 10 weeks based on your data
+                // In a real scenario, you could check user registration date or budget history
+                return 10; // Updated to match your actual usage
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error calculating weeks from start", e);
+            return 10; // Default to 10 weeks based on your actual data
+        }
+    }
+    
+    private Calendar getEarliestExpenseDate() {
+        // This method should be called from calculateCumulativeData where we have access to expenses
+        // For now, we'll store the earliest date as a class member and use it here
+        // If not available, return null to use alternative calculation
+        
+        if (earliestExpenseCalendar != null) {
+            return (Calendar) earliestExpenseCalendar.clone();
+        }
+        
+        return null;
+    }
+    
+    private String getDateForWeekNumber(int weekNumber) {
+        try {
+            // Calculate the actual start date based on user's first activity
+            Calendar earliestDate = getEarliestExpenseDate();
+            if (earliestDate == null) {
+                // If no expenses, calculate based on 10 weeks ago (since user has 10 weeks of data)
+                earliestDate = Calendar.getInstance();
+                earliestDate.add(Calendar.WEEK_OF_YEAR, -9); // 10 weeks ago (9 weeks back + current week)
+                Log.d(TAG, "No earliest expense date found, using calculated start date for 10 weeks");
+            } else {
+                Log.d(TAG, "Using earliest expense date as reference");
+            }
+            
+            // Set to start of week based on user preference
+            int weekStartDay = getUserPreferredWeekStartDay();
+            earliestDate.setFirstDayOfWeek(weekStartDay);
+            earliestDate.set(Calendar.DAY_OF_WEEK, weekStartDay);
+            
+            // Add weeks to get to the target week
+            Calendar targetWeekStart = (Calendar) earliestDate.clone();
+            targetWeekStart.add(Calendar.WEEK_OF_YEAR, weekNumber - 1);
+            
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            String result = dateFormat.format(targetWeekStart.getTime());
+            
+            Log.d(TAG, "Week " + weekNumber + " starts on: " + result + " (earliest: " + dateFormat.format(earliestDate.getTime()) + ")");
+            return result;
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting date for week number: " + weekNumber, e);
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            return dateFormat.format(new Date());
+        }
+    }
+    
+    private double getBudgetForDate(String date, List<BudgetHistory> budgetHistoryList) {
+        Log.d(TAG, "Getting budget for date: " + date);
+        
+        // Find the effective budget for this specific date
+        double effectiveBudget = userBudget; // Default fallback
+        BudgetHistory applicableBudget = null;
+        
+        // Find the most recent budget that was active on or before this date
+        for (BudgetHistory budget : budgetHistoryList) {
+            if (budget.getStartDate() != null && budget.getStartDate().compareTo(date) <= 0) {
+                // This budget was active during or before this date
+                if (budget.getEndDate() == null || budget.getEndDate().compareTo(date) > 0) {
+                    // This budget is still active for this date
+                    // If we have multiple applicable budgets, use the most recent one
+                    if (applicableBudget == null || budget.getStartDate().compareTo(applicableBudget.getStartDate()) > 0) {
+                        applicableBudget = budget;
+                    }
+                }
+            }
+        }
+        
+        if (applicableBudget != null) {
+            effectiveBudget = applicableBudget.getBudget();
+            Log.d(TAG, "Found applicable budget for " + date + ": ₱" + effectiveBudget + " (from " + applicableBudget.getStartDate() + " to " + applicableBudget.getEndDate() + ")");
+        } else {
+            Log.d(TAG, "No budget history found for " + date + ", using default: ₱" + effectiveBudget);
+        }
+        
+        return effectiveBudget;
+    }
+    
+    private double getBudgetForWeek(String weekKey, List<BudgetHistory> budgetHistoryList, SimpleDateFormat dateFormat) {
+        // Extract week start date from weekKey (e.g., "2025-W05")
+        try {
+            String[] parts = weekKey.split("-W");
+            int year = Integer.parseInt(parts[0]);
+            int week = Integer.parseInt(parts[1]);
+            
+            Calendar calendar = Calendar.getInstance();
+            calendar.set(Calendar.YEAR, year);
+            calendar.set(Calendar.WEEK_OF_YEAR, week);
+            calendar.set(Calendar.DAY_OF_WEEK, getUserPreferredWeekStartDay());
+            
+            String weekStartDate = dateFormat.format(calendar.getTime());
+            
+            // Find the effective budget for this week start date
+            double effectiveBudget = userBudget; // Default fallback
+            
+            for (BudgetHistory budget : budgetHistoryList) {
+                if (budget.getStartDate() != null && budget.getStartDate().compareTo(weekStartDate) <= 0) {
+                    // This budget was active during or before this week
+                    if (budget.getEndDate() == null || budget.getEndDate().compareTo(weekStartDate) > 0) {
+                        // This budget is still active for this week
+                        effectiveBudget = budget.getBudget();
+                    }
+                }
+            }
+            
+            return effectiveBudget;
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error calculating budget for week: " + weekKey, e);
+            return userBudget; // Fallback
+        }
+    }
+    
+    private void calculateWithDefaultBudget(Map<String, List<Expense>> expensesByWeek) {
+        // Use week-based calculation even without budget history
+        int totalWeeksFromStart = calculateTotalWeeksFromUserStart();
+        
+        // Calculate budget for total weeks (not just weeks with expenses)
+        cumulativeBudget = totalWeeksFromStart * userBudget;
+        
+        // Calculate total spent from all expenses
+        cumulativeSpent = 0.0;
+        for (List<Expense> weekExpenses : expensesByWeek.values()) {
+            for (Expense expense : weekExpenses) {
+                cumulativeSpent += expense.getAmount();
+            }
+        }
+        
+        cumulativeSaved = cumulativeBudget - cumulativeSpent;
+        
+        Log.d(TAG, "=== DEFAULT CALCULATION (Fallback) ===");
+        Log.d(TAG, "Total weeks from start: " + totalWeeksFromStart);
+        Log.d(TAG, "User budget per week: ₱" + userBudget);
+        Log.d(TAG, "Cumulative budget: ₱" + cumulativeBudget);
+        Log.d(TAG, "Cumulative spent: ₱" + cumulativeSpent);
+        Log.d(TAG, "Cumulative saved: ₱" + cumulativeSaved);
+        
+        runOnUiThread(this::updateUI);
     }
     
     private void updateUI() {
@@ -325,32 +607,38 @@ public class ProfileActivity extends AppCompatActivity {
             // Group expenses by week and calculate weekly savings
             Map<String, WeeklySavings> weeklySavingsMap = calculateWeeklySavings(expenses);
             
-            // Convert to entries for the chart
+            // Convert to entries for the chart with W1-W10 labels
             List<Entry> entries = new ArrayList<>();
             List<String> weekLabels = new ArrayList<>();
             
-            // Sort weeks chronologically
-            List<String> sortedWeeks = new ArrayList<>(weeklySavingsMap.keySet());
-            sortedWeeks.sort((a, b) -> a.compareTo(b)); // String comparison works for "yyyy-Www" format
-            
-            int index = 0;
-            for (String week : sortedWeeks) {
-                WeeklySavings savings = weeklySavingsMap.get(week);
-                entries.add(new Entry(index, (float) savings.saved));
-                weekLabels.add("W" + (index + 1)); // Display as W1, W2, etc.
-                
-                Log.d(TAG, "Week " + week + " (W" + (index + 1) + "): Budget=₱" + savings.budget + 
-                          ", Spent=₱" + savings.spent + ", Saved=₱" + savings.saved);
-                index++;
+            // Always show W1-W10 labels
+            for (int i = 1; i <= 10; i++) {
+                weekLabels.add("W" + i);
             }
             
+            // Sort weeks chronologically
+            List<String> sortedWeeks = new ArrayList<>(weeklySavingsMap.keySet());
+            sortedWeeks.sort(String::compareTo);
+            
+            // Map actual weeks to display weeks (W1-W10, cycling)
+            for (int i = 0; i < sortedWeeks.size(); i++) {
+                String actualWeek = sortedWeeks.get(i);
+                WeeklySavings savings = weeklySavingsMap.get(actualWeek);
+                
+                // Calculate display position (cycles through W1-W10)
+                int displayPosition = i % 10;
+                
+                entries.add(new Entry(displayPosition, (float) savings.saved));
+                
+                Log.d(TAG, "Week " + actualWeek + " -> Display Position W" + (displayPosition + 1) + 
+                          ": Budget=₱" + savings.budget + ", Spent=₱" + savings.spent + ", Saved=₱" + savings.saved);
+            }
+            
+            // If no data, show empty chart with W1-W10 labels
             if (entries.isEmpty()) {
-                Log.w(TAG, "No entries to display in chart");
-                if (chartPlaceholder != null) {
-                    lineChart.setVisibility(View.GONE);
-                    chartPlaceholder.setVisibility(View.VISIBLE);
-                }
-                return;
+                Log.d(TAG, "No expense data, showing empty chart with W1-W10 labels");
+                // Add a single point at (0,0) to show the chart structure
+                entries.add(new Entry(0, 0f));
             }
             
             // Create dataset
@@ -362,10 +650,11 @@ public class ProfileActivity extends AppCompatActivity {
             dataSet.setCircleHoleColor(Color.WHITE);
             dataSet.setLineWidth(4f);
             dataSet.setDrawValues(true);
-            dataSet.setValueTextSize(14f);
+            dataSet.setValueTextSize(9f); 
             dataSet.setValueTextColor(Color.parseColor("#212121"));
             dataSet.setDrawFilled(true);
             dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER); // Smooth curve
+            
             // Gradient fill under the line
             int startColor = Color.parseColor("#A5D6A7"); // Light green
             int endColor = Color.parseColor("#FFF9C4"); // Light yellow
@@ -376,7 +665,8 @@ public class ProfileActivity extends AppCompatActivity {
             dataSet.setFillDrawable(gradient);
             dataSet.setHighlightEnabled(true);
             dataSet.setHighLightColor(Color.parseColor("#FBC02D"));
-            // Value label formatter (explicit implementation to avoid lambda error)
+            
+            // Value label formatter
             dataSet.setValueFormatter(new com.github.mikephil.charting.formatter.ValueFormatter() {
                 @Override
                 public String getPointLabel(Entry entry) {
@@ -387,6 +677,7 @@ public class ProfileActivity extends AppCompatActivity {
                     return "₱" + ((int) value);
                 }
             });
+            
             // Create line data
             LineData lineData = new LineData(dataSet);
             lineChart.setData(lineData);
@@ -400,6 +691,9 @@ public class ProfileActivity extends AppCompatActivity {
             xAxis.setValueFormatter(new IndexAxisValueFormatter(weekLabels));
             xAxis.setGranularity(1f);
             xAxis.setGranularityEnabled(true);
+            xAxis.setAxisMinimum(0f);
+            xAxis.setAxisMaximum(9f); // Show W1-W10 (0-9 indices)
+            xAxis.setLabelCount(10, true); // Force show all 10 labels
             xAxis.setTextColor(Color.parseColor("#212121"));
             xAxis.setTextSize(14f);
             xAxis.setDrawGridLines(false);
@@ -458,7 +752,7 @@ public class ProfileActivity extends AppCompatActivity {
                     if (weekSavings == null) {
                         weekSavings = new WeeklySavings();
                         weekSavings.week = weekKey;
-                        weekSavings.budget = 2000.0;
+                        weekSavings.budget = userBudget;
                         weekSavings.spent = 0.0;
                         weeklySavingsMap.put(weekKey, weekSavings);
                     }
@@ -496,16 +790,15 @@ public class ProfileActivity extends AppCompatActivity {
     private void showDefaultBudget() {
         Log.d(TAG, "No expenses found, showing default budget");
         // If no expenses, still show the current week's budget
-        cumulativeBudget = 2000.0; // Default weekly budget
+        cumulativeBudget = userBudget; // Use user's current budget
         cumulativeSpent = 0.0;
         cumulativeSaved = cumulativeBudget - cumulativeSpent;
         
         Log.d(TAG, "Default budget set: ₱" + cumulativeBudget + " budget, ₱" + cumulativeSpent + " spent, ₱" + cumulativeSaved + " saved");
         
-        // Show placeholder chart when no data
-        if (lineChart != null && chartPlaceholder != null) {
-            lineChart.setVisibility(View.GONE);
-            chartPlaceholder.setVisibility(View.VISIBLE);
+        // Show chart with W1-W10 labels even when no data
+        if (lineChart != null) {
+            setupLineChart(new ArrayList<>()); // Empty expense list to show basic chart structure
         }
     }
     

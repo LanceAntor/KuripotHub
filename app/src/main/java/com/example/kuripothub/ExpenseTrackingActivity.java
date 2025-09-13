@@ -30,6 +30,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 
 import com.example.kuripothub.models.Expense;
 import com.example.kuripothub.models.User;
+import com.example.kuripothub.models.BudgetHistory;
 import com.example.kuripothub.utils.FirebaseManager;
 import com.example.kuripothub.utils.PreferenceBasedDateUtils;
 import com.google.firebase.auth.FirebaseUser;
@@ -39,6 +40,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -1081,6 +1083,10 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                         if (originalBudgetAmount != null) {
                             originalBudgetAmount.setText("P" + String.format("%.2f", originalBudget));
                         }
+                        
+                        // Save budget history when budget changes
+                        saveBudgetChangeToHistory(oldOriginalBudget, newOriginalBudget);
+                        
                         updateBudgetInFirebase();
                         budgetDialog.dismiss();
                         Toast.makeText(this, "Original budget updated", Toast.LENGTH_SHORT).show();
@@ -1099,6 +1105,177 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
         });
 
         budgetDialog.show();
+    }
+
+    private void saveBudgetChangeToHistory(double oldBudget, double newBudget) {
+        if (currentUserId == null) {
+            Log.w(TAG, "Cannot save budget history: currentUserId is null");
+            return;
+        }
+        
+        // Get current week start date
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        String currentWeekStartDate = getCurrentWeekStartDate();
+        
+        // Calculate the end date for the old budget (day before current week starts)
+        Calendar currentWeekStart = Calendar.getInstance();
+        try {
+            Date weekStartDate = dateFormat.parse(currentWeekStartDate);
+            currentWeekStart.setTime(weekStartDate);
+            currentWeekStart.add(Calendar.DAY_OF_YEAR, -1); // Day before current week
+        } catch (Exception e) {
+            Log.e(TAG, "Error parsing current week start date", e);
+            currentWeekStart.add(Calendar.DAY_OF_YEAR, -1); // Fallback to yesterday
+        }
+        String oldBudgetEndDate = dateFormat.format(currentWeekStart.getTime());
+        
+        Log.d(TAG, "=== BUDGET CHANGE LOGIC ===");
+        Log.d(TAG, "Changing budget from ₱" + oldBudget + " to ₱" + newBudget);
+        Log.d(TAG, "Current week starts on: " + currentWeekStartDate);
+        Log.d(TAG, "Old budget should end on: " + oldBudgetEndDate);
+        
+        // First, check if we need to create initial budget history for previous weeks
+        firebaseManager.getUserBudgetHistory(currentUserId)
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (queryDocumentSnapshots.isEmpty()) {
+                        // No budget history exists, create initial entry for previous weeks
+                        Log.d(TAG, "No budget history found, creating historical budget entry");
+                        
+                        String firstWeekStartDate = getFirstWeekStartDate();
+                        
+                        // Create the old budget entry that covers weeks 1 and 2
+                        BudgetHistory oldBudgetHistory = new BudgetHistory(currentUserId, oldBudget, firstWeekStartDate);
+                        oldBudgetHistory.setEndDate(oldBudgetEndDate);
+                        
+                        Log.d(TAG, "Creating historical budget: ₱" + oldBudget + " from " + firstWeekStartDate + " to " + oldBudgetEndDate);
+                        
+                        firebaseManager.addBudgetHistory(oldBudgetHistory)
+                                .addOnSuccessListener(documentReference -> {
+                                    Log.d(TAG, "Historical budget entry created, ID: " + documentReference.getId());
+                                    // Now create the new budget for current week onwards
+                                    createNewBudgetPeriod(newBudget, currentWeekStartDate);
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "Failed to create historical budget entry", e);
+                                });
+                    } else {
+                        // Budget history exists, end the current period properly
+                        Log.d(TAG, "Budget history exists (" + queryDocumentSnapshots.size() + " entries), ending current period");
+                        
+                        firebaseManager.endCurrentBudgetPeriod(currentUserId, oldBudgetEndDate)
+                                .addOnCompleteListener(task -> {
+                                    if (task.isSuccessful()) {
+                                        Log.d(TAG, "Current budget period ended successfully");
+                                    } else {
+                                        Log.w(TAG, "Failed to end current budget period", task.getException());
+                                    }
+                                    // Create new budget period regardless
+                                    createNewBudgetPeriod(newBudget, currentWeekStartDate);
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to check budget history", e);
+                });
+    }
+    
+    private void createNewBudgetPeriod(double newBudget, String startDate) {
+        Log.d(TAG, "Creating new budget period: ₱" + newBudget + " starting from " + startDate);
+        
+        BudgetHistory newBudgetHistory = new BudgetHistory(currentUserId, newBudget, startDate);
+        
+        firebaseManager.addBudgetHistory(newBudgetHistory)
+                .addOnSuccessListener(documentReference -> {
+                    Log.d(TAG, "✓ New budget period created successfully with ID: " + documentReference.getId());
+                    Log.d(TAG, "✓ Budget: ₱" + newBudget + " from " + startDate + " onwards");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "✗ Failed to create new budget period", e);
+                });
+    }
+
+    private void initializeBudgetHistoryIfNeeded() {
+        if (currentUserId == null) {
+            Log.w(TAG, "Cannot initialize budget history: currentUserId is null");
+            return;
+        }
+        
+        Log.d(TAG, "Checking if budget history needs initialization for user: " + currentUserId);
+        
+        // Check if user already has budget history
+        firebaseManager.getUserBudgetHistory(currentUserId)
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (queryDocumentSnapshots.isEmpty()) {
+                        // No budget history exists, create initial entry
+                        Log.d(TAG, "No budget history found, creating initial entry");
+                        
+                        // Use the start date of the first week instead of current date
+                        String firstWeekStartDate = getFirstWeekStartDate();
+                        
+                        BudgetHistory initialBudget = new BudgetHistory(currentUserId, originalBudget, firstWeekStartDate);
+                        
+                        firebaseManager.addBudgetHistory(initialBudget)
+                                .addOnSuccessListener(documentReference -> {
+                                    Log.d(TAG, "Initial budget history created with ID: " + documentReference.getId() + " starting from: " + firstWeekStartDate);
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "Failed to create initial budget history", e);
+                                });
+                    } else {
+                        Log.d(TAG, "Budget history already exists (" + queryDocumentSnapshots.size() + " entries)");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to check budget history", e);
+                });
+    }
+
+    private int getUserPreferredWeekStartDay() {
+        // Get user's preferred start day from preferences
+        String userStartDay = PreferenceActivity.getStartDay(this); // e.g., "Monday", "Sunday"
+        switch (userStartDay.toLowerCase()) {
+            case "sunday": return Calendar.SUNDAY;
+            case "monday": return Calendar.MONDAY;
+            case "tuesday": return Calendar.TUESDAY;
+            case "wednesday": return Calendar.WEDNESDAY;
+            case "thursday": return Calendar.THURSDAY;
+            case "friday": return Calendar.FRIDAY;
+            case "saturday": return Calendar.SATURDAY;
+            default: return Calendar.MONDAY;
+        }
+    }
+
+    private String getFirstWeekStartDate() {
+        try {
+            // Calculate the first week start date more accurately
+            // If we're currently in week 3, we need to go back to week 1
+            Calendar currentDate = Calendar.getInstance();
+            int weekStartDay = getUserPreferredWeekStartDay();
+            
+            // Set the calendar to use the preferred week start day
+            currentDate.setFirstDayOfWeek(weekStartDay);
+            
+            // Calculate weeks to go back: if current is week 3, go back 2 weeks
+            int weeksToGoBack = 2; // For week 3, go back 2 weeks to get to week 1
+            currentDate.add(Calendar.WEEK_OF_YEAR, -weeksToGoBack);
+            
+            // Set to the start of that week
+            currentDate.set(Calendar.DAY_OF_WEEK, weekStartDay);
+            
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            String firstWeekStart = dateFormat.format(currentDate.getTime());
+            
+            Log.d(TAG, "Calculated first week start date: " + firstWeekStart + " (going back " + weeksToGoBack + " weeks)");
+            return firstWeekStart;
+        } catch (Exception e) {
+            Log.e(TAG, "Error calculating first week start date", e);
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            
+            // Fallback: use 2 weeks ago from today
+            Calendar fallback = Calendar.getInstance();
+            fallback.add(Calendar.WEEK_OF_YEAR, -2);
+            return dateFormat.format(fallback.getTime());
+        }
     }
 
     // Firebase methods
@@ -1130,6 +1307,9 @@ public class ExpenseTrackingActivity extends AppCompatActivity {
                             }
 
                             Log.d(TAG, "User budget loaded: " + currentBudget);
+                            
+                            // Initialize budget history if this is a new user
+                            initializeBudgetHistoryIfNeeded();
                             
                             // Immediately calculate amount budget from current period expenses (like Expense Summary)
                             calculateAndSetAmountBudget();
