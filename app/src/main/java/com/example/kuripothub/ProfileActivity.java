@@ -703,7 +703,7 @@ public class ProfileActivity extends AppCompatActivity {
             YAxis leftAxis = lineChart.getAxisLeft();
             leftAxis.setTextColor(Color.parseColor("#212121"));
             leftAxis.setTextSize(14f);
-            leftAxis.setAxisMinimum(-1000f); // Allow negative values down to -1000
+            leftAxis.setAxisMinimum(-500f); // Allow negative values down to -500
             // Set axis maximum to user's dynamic budget
             leftAxis.setAxisMaximum((float) userBudget);
             leftAxis.setDrawGridLines(true);
@@ -713,8 +713,8 @@ public class ProfileActivity extends AppCompatActivity {
             
             // Add a zero line for better visualization
             leftAxis.setDrawZeroLine(true);
-            leftAxis.setZeroLineColor(Color.parseColor("#FF5722")); // Red line at zero
-            leftAxis.setZeroLineWidth(2f);
+            leftAxis.setZeroLineColor(Color.parseColor("#212121")); // Red line at zero
+            leftAxis.setZeroLineWidth(5f);
             YAxis rightAxis = lineChart.getAxisRight();
             rightAxis.setEnabled(false);
             
